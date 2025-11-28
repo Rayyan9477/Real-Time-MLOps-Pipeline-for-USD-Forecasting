@@ -1,26 +1,23 @@
 /**
  * USD Volatility Prediction Dashboard
- * Main JavaScript file for the UI
+ * Main JavaScript file for the UI - Now with Real API Integration
  */
 
 // Configuration
 const CONFIG = {
     API_BASE_URL: window.location.origin,
     REFRESH_INTERVAL: 30000, // 30 seconds
-    MAX_CHART_POINTS: 20,
+    MAX_CHART_POINTS: 24,
     MAX_TABLE_ROWS: 10
 };
 
 // State Management
 const state = {
     predictions: [],
-    metrics: {
-        rmse: 0.00045,
-        mae: 0.00032,
-        r2: 0.876,
-        mape: 4.23
-    },
+    modelInfo: null,
+    stats: null,
     isApiOnline: false,
+    modelLoaded: false,
     currentPage: 'dashboard'
 };
 
@@ -80,7 +77,7 @@ function navigateToPage(page) {
     
     // Initialize page-specific content
     if (page === 'monitoring') {
-        initMonitoringCharts();
+        loadMonitoringData();
     }
 }
 
@@ -111,19 +108,93 @@ function updateApiStatus(isOnline, data = null) {
     state.isApiOnline = isOnline;
     
     if (isOnline) {
-        elements.statusDot.classList.remove('status-offline');
-        elements.statusDot.classList.add('status-online');
-        elements.statusText.textContent = 'Online';
+        elements.statusDot?.classList.remove('status-offline');
+        elements.statusDot?.classList.add('status-online');
+        if (elements.statusText) elements.statusText.textContent = 'Online';
         
-        if (data && data.model_version) {
-            elements.modelVersion.textContent = `v${data.model_version}`;
-            document.getElementById('model-status-badge').textContent = data.model_loaded ? 'Active' : 'Loading';
+        if (data) {
+            state.modelLoaded = data.model_loaded;
+            if (data.model_version && elements.modelVersion) {
+                elements.modelVersion.textContent = `v${data.model_version}`;
+            }
+            const badge = document.getElementById('model-status-badge');
+            if (badge) {
+                badge.textContent = data.model_loaded ? 'Active' : 'Loading';
+            }
         }
     } else {
-        elements.statusDot.classList.remove('status-online');
-        elements.statusDot.classList.add('status-offline');
-        elements.statusText.textContent = 'Offline';
+        elements.statusDot?.classList.remove('status-online');
+        elements.statusDot?.classList.add('status-offline');
+        if (elements.statusText) elements.statusText.textContent = 'Offline';
     }
+}
+
+async function fetchStats() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/stats`);
+        if (response.ok) {
+            state.stats = await response.json();
+            updateDashboardFromStats();
+            return state.stats;
+        }
+    } catch (error) {
+        console.error('Failed to fetch stats:', error);
+    }
+    return null;
+}
+
+async function fetchModelInfo() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/model/info`);
+        if (response.ok) {
+            state.modelInfo = await response.json();
+            updateModelMetrics();
+            return state.modelInfo;
+        }
+    } catch (error) {
+        console.error('Failed to fetch model info:', error);
+    }
+    return null;
+}
+
+async function fetchRecentPredictions() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/predictions/recent?limit=20`);
+        if (response.ok) {
+            const data = await response.json();
+            state.predictions = data.predictions || [];
+            updatePredictionsTable();
+            updateVolatilityChart();
+            return data;
+        }
+    } catch (error) {
+        console.error('Failed to fetch predictions:', error);
+    }
+    return null;
+}
+
+async function fetchLatencyDistribution() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/latency/distribution`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (error) {
+        console.error('Failed to fetch latency distribution:', error);
+    }
+    return null;
+}
+
+async function fetchDriftHistory() {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/drift/history`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (error) {
+        console.error('Failed to fetch drift history:', error);
+    }
+    return null;
 }
 
 async function makePrediction(features) {
@@ -139,6 +210,9 @@ async function makePrediction(features) {
         
         if (response.ok) {
             const data = await response.json();
+            // Refresh predictions after successful prediction
+            await fetchRecentPredictions();
+            await fetchStats();
             return { success: true, data };
         } else {
             const error = await response.json();
@@ -150,22 +224,68 @@ async function makePrediction(features) {
     }
 }
 
-async function getModelInfo() {
-    try {
-        const response = await fetch(`${CONFIG.API_BASE_URL}/model_info`);
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (error) {
-        console.error('Failed to get model info:', error);
+// ==================== Update Dashboard ====================
+function updateDashboardFromStats() {
+    if (!state.stats) return;
+    
+    if (elements.predictionsCount) {
+        elements.predictionsCount.textContent = state.stats.total_predictions || 0;
     }
-    return null;
+    
+    if (elements.avgLatency) {
+        elements.avgLatency.textContent = (state.stats.avg_latency_ms || 0).toFixed(1);
+    }
+    
+    if (elements.driftScore) {
+        elements.driftScore.textContent = state.stats.drift_alerts || 0;
+    }
+    
+    // Update model accuracy card if exists
+    const accuracyEl = document.getElementById('model-accuracy');
+    if (accuracyEl && state.stats.model_accuracy) {
+        accuracyEl.textContent = state.stats.model_accuracy.toFixed(1);
+    }
+}
+
+function updateModelMetrics() {
+    if (!state.modelInfo || !state.modelInfo.metrics) return;
+    
+    const metrics = state.modelInfo.metrics;
+    
+    // Update metrics displays
+    const rmseEl = document.getElementById('metric-rmse');
+    const maeEl = document.getElementById('metric-mae');
+    const r2El = document.getElementById('metric-r2');
+    const mapeEl = document.getElementById('metric-mape');
+    
+    if (rmseEl) rmseEl.textContent = (metrics.rmse || 0).toFixed(5);
+    if (maeEl) maeEl.textContent = (metrics.mae || 0).toFixed(5);
+    if (r2El) r2El.textContent = (metrics.r2 || 0).toFixed(3);
+    if (mapeEl) mapeEl.textContent = (metrics.mape || 0).toFixed(2) + '%';
+    
+    // Update progress bars if they exist
+    updateProgressBar('rmse-bar', Math.min(metrics.rmse * 10000, 100));
+    updateProgressBar('mae-bar', Math.min(metrics.mae * 10000, 100));
+    updateProgressBar('r2-bar', Math.max(0, metrics.r2) * 100);
+    updateProgressBar('mape-bar', Math.min(metrics.mape * 10, 100));
+}
+
+function updateProgressBar(id, percentage) {
+    const bar = document.getElementById(id);
+    if (bar) {
+        bar.style.width = `${Math.min(100, Math.max(0, percentage))}%`;
+    }
 }
 
 // ==================== Prediction Form ====================
 if (elements.predictionForm) {
     elements.predictionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        if (!state.modelLoaded) {
+            showError('Model not loaded. Please wait for model to load.');
+            return;
+        }
         
         const formData = new FormData(e.target);
         const features = {};
@@ -188,7 +308,6 @@ if (elements.predictionForm) {
         
         if (result.success) {
             displayPredictionResult(result.data);
-            addPredictionToHistory(result.data);
         } else {
             showError(result.error);
         }
@@ -196,40 +315,30 @@ if (elements.predictionForm) {
 }
 
 function displayPredictionResult(data) {
-    elements.predictionResult.classList.add('hidden');
-    elements.predictionSuccess.classList.remove('hidden');
+    if (elements.predictionResult) elements.predictionResult.classList.add('hidden');
+    if (elements.predictionSuccess) elements.predictionSuccess.classList.remove('hidden');
     
-    document.getElementById('result-value').textContent = data.prediction.toFixed(6);
-    document.getElementById('result-model').textContent = `v${data.model_version}`;
-    document.getElementById('result-latency').textContent = `${(parseFloat(data.timestamp) * 1000 || Math.random() * 50).toFixed(1)}ms`;
+    const resultValue = document.getElementById('result-value');
+    const resultModel = document.getElementById('result-model');
+    const resultLatency = document.getElementById('result-latency');
+    const resultDrift = document.getElementById('result-drift');
+    const resultTimestamp = document.getElementById('result-timestamp');
     
-    const driftElement = document.getElementById('result-drift');
-    driftElement.textContent = data.drift_detected ? 'Yes' : 'No';
-    driftElement.className = data.drift_detected ? 'font-medium text-amber-400' : 'font-medium text-emerald-400';
+    if (resultValue) resultValue.textContent = data.prediction.toFixed(6);
+    if (resultModel) resultModel.textContent = `v${data.model_version}`;
+    if (resultLatency) resultLatency.textContent = `${(data.latency_ms || 0).toFixed(1)}ms`;
     
-    document.getElementById('result-timestamp').textContent = new Date(data.timestamp).toLocaleString();
-}
-
-function addPredictionToHistory(data) {
-    state.predictions.unshift({
-        timestamp: data.timestamp,
-        prediction: data.prediction,
-        latency: Math.random() * 50 + 10,
-        drift: data.drift_ratio,
-        drift_detected: data.drift_detected
-    });
-    
-    if (state.predictions.length > CONFIG.MAX_TABLE_ROWS) {
-        state.predictions.pop();
+    if (resultDrift) {
+        resultDrift.textContent = data.drift_detected ? 'Yes' : 'No';
+        resultDrift.className = data.drift_detected ? 'font-medium text-amber-400' : 'font-medium text-emerald-400';
     }
     
-    updatePredictionsTable();
-    updateDashboardStats();
+    if (resultTimestamp) resultTimestamp.textContent = new Date(data.timestamp).toLocaleString();
 }
 
 // Random values button
 document.getElementById('random-btn')?.addEventListener('click', () => {
-    const inputs = elements.predictionForm.querySelectorAll('input[type="number"]');
+    const inputs = document.querySelectorAll('#prediction-form input[type="number"]');
     inputs.forEach(input => {
         const name = input.name;
         let value;
@@ -263,7 +372,7 @@ document.getElementById('random-btn')?.addEventListener('click', () => {
     });
 });
 
-// ==================== Dashboard Updates ====================
+// ==================== Tables ====================
 function updatePredictionsTable() {
     if (!elements.predictionsTable) return;
     
@@ -280,16 +389,16 @@ function updatePredictionsTable() {
         return;
     }
     
-    elements.predictionsTable.innerHTML = state.predictions.map(pred => `
+    elements.predictionsTable.innerHTML = state.predictions.slice(0, CONFIG.MAX_TABLE_ROWS).map(pred => `
         <tr class="border-b border-slate-700/50 hover:bg-slate-800/30 transition">
             <td class="py-4 text-slate-300 text-sm">${new Date(pred.timestamp).toLocaleString()}</td>
             <td class="py-4">
                 <span class="font-mono text-cyan-400">${pred.prediction.toFixed(6)}</span>
             </td>
-            <td class="py-4 text-slate-300">${pred.latency.toFixed(1)}ms</td>
+            <td class="py-4 text-slate-300">${(pred.latency_ms || 0).toFixed(1)}ms</td>
             <td class="py-4">
-                <span class="text-sm ${pred.drift > 0.2 ? 'text-amber-400' : 'text-emerald-400'}">
-                    ${(pred.drift * 100).toFixed(1)}%
+                <span class="text-sm ${pred.drift_ratio > 0.2 ? 'text-amber-400' : 'text-emerald-400'}">
+                    ${((pred.drift_ratio || 0) * 100).toFixed(1)}%
                 </span>
             </td>
             <td class="py-4">
@@ -299,20 +408,6 @@ function updatePredictionsTable() {
             </td>
         </tr>
     `).join('');
-}
-
-function updateDashboardStats() {
-    elements.predictionsCount.textContent = state.predictions.length;
-    
-    if (state.predictions.length > 0) {
-        const avgLatency = state.predictions.reduce((acc, p) => acc + p.latency, 0) / state.predictions.length;
-        elements.avgLatency.textContent = avgLatency.toFixed(1);
-        
-        const avgDrift = state.predictions.reduce((acc, p) => acc + p.drift, 0) / state.predictions.length;
-        elements.driftScore.textContent = (avgDrift * 100).toFixed(1);
-        elements.driftStatus.textContent = avgDrift > 0.2 ? 'Warning' : 'Normal';
-        elements.driftStatus.className = avgDrift > 0.2 ? 'text-xs text-amber-400' : 'text-xs text-green-400';
-    }
 }
 
 // ==================== Charts ====================
@@ -340,82 +435,11 @@ function initVolatilityChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.1)'
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                },
-                y: {
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.1)'
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                }
-            }
-        }
-    });
-    
-    // Add demo data
-    addDemoVolatilityData();
-}
-
-function addDemoVolatilityData() {
-    if (!volatilityChart) return;
-    
-    const now = new Date();
-    for (let i = 19; i >= 0; i--) {
-        const time = new Date(now - i * 60 * 60 * 1000);
-        volatilityChart.data.labels.push(time.getHours() + ':00');
-        volatilityChart.data.datasets[0].data.push((Math.random() * 0.001 + 0.0005).toFixed(5));
-    }
-    volatilityChart.update();
-}
-
-function initMonitoringCharts() {
-    initLatencyChart();
-    initDriftChart();
-}
-
-function initLatencyChart() {
-    const ctx = document.getElementById('latencyChart');
-    if (!ctx || latencyChart) return;
-    
-    latencyChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['<10ms', '10-25ms', '25-50ms', '50-100ms', '>100ms'],
-            datasets: [{
-                label: 'Request Count',
-                data: [45, 120, 80, 30, 5],
-                backgroundColor: [
-                    'rgba(16, 185, 129, 0.8)',
-                    'rgba(6, 182, 212, 0.8)',
-                    'rgba(124, 58, 237, 0.8)',
-                    'rgba(245, 158, 11, 0.8)',
-                    'rgba(239, 68, 68, 0.8)'
-                ],
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
                 legend: { display: false }
             },
             scales: {
                 x: {
-                    grid: { display: false },
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
                     ticks: { color: '#94a3b8' }
                 },
                 y: {
@@ -427,62 +451,147 @@ function initLatencyChart() {
     });
 }
 
-function initDriftChart() {
-    const ctx = document.getElementById('driftChart');
-    if (!ctx || driftChart) return;
+function updateVolatilityChart() {
+    if (!volatilityChart || state.predictions.length === 0) return;
     
-    const labels = [];
-    const data = [];
-    const now = new Date();
+    // Use real prediction data
+    const recentPreds = state.predictions.slice(0, CONFIG.MAX_CHART_POINTS).reverse();
     
-    for (let i = 23; i >= 0; i--) {
-        const time = new Date(now - i * 60 * 60 * 1000);
-        labels.push(time.getHours() + ':00');
-        data.push((Math.random() * 15 + 5).toFixed(1));
+    volatilityChart.data.labels = recentPreds.map(p => {
+        const date = new Date(p.timestamp);
+        return date.getHours() + ':' + date.getMinutes().toString().padStart(2, '0');
+    });
+    
+    volatilityChart.data.datasets[0].data = recentPreds.map(p => p.prediction);
+    volatilityChart.update();
+}
+
+async function loadMonitoringData() {
+    // Load latency distribution
+    const latencyData = await fetchLatencyDistribution();
+    if (latencyData && latencyData.buckets.length > 0) {
+        updateLatencyChart(latencyData);
+    } else {
+        initLatencyChartWithDefaults();
     }
     
-    driftChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Drift Score (%)',
-                data: data,
-                borderColor: '#7c3aed',
-                backgroundColor: 'rgba(124, 58, 237, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            }, {
-                label: 'Threshold',
-                data: Array(24).fill(20),
-                borderColor: '#ef4444',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                fill: false,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: { color: '#94a3b8' }
-                }
+    // Load drift history
+    const driftData = await fetchDriftHistory();
+    if (driftData && driftData.timestamps.length > 0) {
+        updateDriftChart(driftData);
+    } else {
+        initDriftChartWithDefaults();
+    }
+}
+
+function updateLatencyChart(data) {
+    const ctx = document.getElementById('latencyChart');
+    if (!ctx) return;
+    
+    if (latencyChart) {
+        latencyChart.data.labels = data.buckets;
+        latencyChart.data.datasets[0].data = data.counts;
+        latencyChart.update();
+    } else {
+        latencyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.buckets,
+                datasets: [{
+                    label: 'Request Count',
+                    data: data.counts,
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(6, 182, 212, 0.8)',
+                        'rgba(124, 58, 237, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(239, 68, 68, 0.8)'
+                    ],
+                    borderRadius: 8
+                }]
             },
-            scales: {
-                x: {
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                    ticks: { color: '#94a3b8' }
-                },
-                y: {
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                    ticks: { color: '#94a3b8' },
-                    max: 30
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: 'rgba(148, 163, 184, 0.1)' }, ticks: { color: '#94a3b8' } }
                 }
             }
-        }
+        });
+    }
+}
+
+function initLatencyChartWithDefaults() {
+    updateLatencyChart({
+        buckets: ['<10ms', '10-25ms', '25-50ms', '50-100ms', '>100ms'],
+        counts: [0, 0, 0, 0, 0]
+    });
+}
+
+function updateDriftChart(data) {
+    const ctx = document.getElementById('driftChart');
+    if (!ctx) return;
+    
+    if (driftChart) {
+        driftChart.data.labels = data.timestamps.map(t => {
+            const date = new Date(t);
+            return date.getHours() + ':00';
+        });
+        driftChart.data.datasets[0].data = data.scores;
+        driftChart.update();
+    } else {
+        driftChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.timestamps.map(t => {
+                    const date = new Date(t);
+                    return date.getHours() + ':00';
+                }),
+                datasets: [{
+                    label: 'Drift Score (%)',
+                    data: data.scores,
+                    borderColor: '#7c3aed',
+                    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }, {
+                    label: 'Threshold',
+                    data: Array(data.timestamps.length).fill(data.threshold || 20),
+                    borderColor: '#ef4444',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8' } }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(148, 163, 184, 0.1)' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: 'rgba(148, 163, 184, 0.1)' }, ticks: { color: '#94a3b8' }, max: 30 }
+                }
+            }
+        });
+    }
+}
+
+function initDriftChartWithDefaults() {
+    const now = new Date();
+    const timestamps = [];
+    for (let i = 23; i >= 0; i--) {
+        timestamps.push(new Date(now - i * 60 * 60 * 1000).toISOString());
+    }
+    updateDriftChart({
+        timestamps: timestamps,
+        scores: Array(24).fill(0),
+        threshold: 20
     });
 }
 
@@ -491,18 +600,27 @@ document.getElementById('refresh-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('refresh-btn');
     btn.innerHTML = '<i class="fas fa-sync-alt fa-spin text-slate-300"></i>';
     
-    await checkApiHealth();
+    await refreshAllData();
     
     setTimeout(() => {
         btn.innerHTML = '<i class="fas fa-sync-alt text-slate-300"></i>';
     }, 1000);
 });
 
+async function refreshAllData() {
+    await Promise.all([
+        checkApiHealth(),
+        fetchStats(),
+        fetchModelInfo(),
+        fetchRecentPredictions()
+    ]);
+}
+
 // ==================== Error Handling ====================
 function showError(message) {
     // Create toast notification
     const toast = document.createElement('div');
-    toast.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 z-50 animate-slide-in';
+    toast.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 z-50';
     toast.innerHTML = `
         <i class="fas fa-exclamation-circle"></i>
         <span>${message}</span>
@@ -514,43 +632,35 @@ function showError(message) {
     }, 5000);
 }
 
-// ==================== Demo Mode ====================
-function runDemoMode() {
-    // Simulate predictions for demo
-    setInterval(() => {
-        if (state.currentPage === 'dashboard' && volatilityChart) {
-            const newValue = (Math.random() * 0.001 + 0.0005).toFixed(5);
-            const now = new Date();
-            
-            volatilityChart.data.labels.push(now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0'));
-            volatilityChart.data.datasets[0].data.push(newValue);
-            
-            if (volatilityChart.data.labels.length > CONFIG.MAX_CHART_POINTS) {
-                volatilityChart.data.labels.shift();
-                volatilityChart.data.datasets[0].data.shift();
-            }
-            
-            volatilityChart.update('none');
-        }
-    }, 10000);
+function showSuccess(message) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 z-50';
+    toast.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
 
 // ==================== Initialize ====================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 USD Volatility Dashboard Initialized');
     
-    // Check API health
-    await checkApiHealth();
-    
-    // Initialize charts
+    // Initialize charts first
     initVolatilityChart();
     
-    // Update table
-    updatePredictionsTable();
+    // Load all data
+    await refreshAllData();
     
-    // Start demo mode
-    runDemoMode();
+    // Update model status indicator
+    if (state.modelLoaded) {
+        showSuccess('Model loaded successfully!');
+    }
     
-    // Periodic health checks
-    setInterval(checkApiHealth, CONFIG.REFRESH_INTERVAL);
+    // Periodic refresh
+    setInterval(refreshAllData, CONFIG.REFRESH_INTERVAL);
 });

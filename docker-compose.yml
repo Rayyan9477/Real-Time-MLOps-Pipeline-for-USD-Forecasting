@@ -183,18 +183,18 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - MLFLOW_BACKEND_STORE_URI=postgresql://airflow:airflow@postgres/mlflow
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - AWS_ACCESS_KEY_ID=minioadmin
       - AWS_SECRET_ACCESS_KEY=minioadmin
+    volumes:
+      - mlflow-data:/mlflow
     command: >
       mlflow server
-      --backend-store-uri postgresql://airflow:airflow@postgres/mlflow
-      --default-artifact-root s3://mlflow-artifacts/
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
     depends_on:
-      - postgres
       - minio
     restart: always
     networks:
@@ -205,6 +205,7 @@ volumes:
   minio-data:
   prometheus-data:
   grafana-data:
+  mlflow-data:
 
 networks:
   mlops-network:

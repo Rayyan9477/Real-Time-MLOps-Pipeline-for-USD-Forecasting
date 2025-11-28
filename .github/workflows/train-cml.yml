@@ -7,26 +7,26 @@ on:
 jobs:
   train-and-compare:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-    
+
     - name: Setup DVC
       uses: iterative/setup-dvc@v1
-    
+
     - name: Configure DVC remote
       env:
         DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
@@ -34,14 +34,14 @@ jobs:
         dvc remote modify origin --local auth basic
         dvc remote modify origin --local user ${{ secrets.DAGSHUB_USERNAME }}
         dvc remote modify origin --local password ${DAGSHUB_TOKEN}
-    
+
     - name: Pull latest data with DVC
       run: |
         dvc pull
-    
+
     - name: Setup CML
       uses: iterative/setup-cml@v1
-    
+
     - name: Train model
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -50,7 +50,7 @@ jobs:
         TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
       run: |
         python src/models/train.py --experiment "ci_cd_testing"
-    
+
     - name: Generate metrics report
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -60,18 +60,18 @@ jobs:
         python -c "
         import mlflow
         import os
-        
+
         mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
         client = mlflow.tracking.MlflowClient()
-        
+
         # Get latest run from test branch
         experiment = client.get_experiment_by_name('ci_cd_testing')
         runs = client.search_runs(experiment.experiment_id, order_by=['start_time DESC'], max_results=1)
-        
+
         if runs:
             latest_run = runs[0]
             metrics = latest_run.data.metrics
-            
+
             # Write metrics to file
             with open('metrics.txt', 'w') as f:
                 f.write('## Model Performance Metrics\n\n')
@@ -82,14 +82,14 @@ jobs:
                 f.write(f'**Drift Ratio**: {metrics.get(\"drift_ratio\", \"N/A\"):.2%}\n')
                 f.write(f'**Drifted Features**: {int(metrics.get(\"num_drifted_features\", 0))}/{int(metrics.get(\"total_features\", 0))}\n')
         "
-    
+
     - name: Create CML report
       env:
         REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Add metrics to report
         cat metrics.txt >> report.md
-        
+
         # Add comparison note
         echo "" >> report.md
         echo "---" >> report.md
@@ -97,6 +97,6 @@ jobs:
         echo "✓ Review metrics above before merging to test branch" >> report.md
         echo "✓ Ensure RMSE has not degraded by more than 10%" >> report.md
         echo "✓ Check drift ratio is within acceptable limits" >> report.md
-        
+
         # Post comment with CML
         cml comment create report.md
