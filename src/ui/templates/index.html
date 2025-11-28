@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USD Volatility Prediction | MLOps Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#7c3aed',
+                        accent: '#06b6d4',
+                        dark: '#0f172a',
+                        darker: '#020617',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+        }
+        
+        .card-gradient {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(10px);
+        }
+        
+        .glow {
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.15);
+        }
+        
+        .glow-purple {
+            box-shadow: 0 0 40px rgba(124, 58, 237, 0.15);
+        }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hover-lift {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-online {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .status-offline {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #06b6d4, #7c3aed);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-darker/80 backdrop-blur-lg border-b border-slate-700/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white"></i>
+                        </div>
+                        <span class="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                            USD Volatility
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-1">
+                    <a href="#" class="nav-link active px-4 py-2 rounded-lg text-cyan-400 bg-cyan-400/10" data-page="dashboard">
+                        <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                    </a>
+                    <a href="#" class="nav-link px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition" data-page="predict">
+                        <i class="fas fa-brain mr-2"></i>Predict
+                    </a>
+                    <a href="#" class="nav-link px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition" data-page="monitoring">
+                        <i class="fas fa-heartbeat mr-2"></i>Monitoring
+                    </a>
+                    <a href="#" class="nav-link px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition" data-page="pipeline">
+                        <i class="fas fa-stream mr-2"></i>Pipeline
+                    </a>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div id="api-status" class="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800">
+                        <span class="w-2 h-2 rounded-full status-offline pulse-dot" id="status-dot"></span>
+                        <span class="text-sm text-slate-300" id="status-text">Checking...</span>
+                    </div>
+                    <button id="refresh-btn" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition">
+                        <i class="fas fa-sync-alt text-slate-300"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        
+        <!-- Dashboard Page -->
+        <div id="page-dashboard" class="page-content">
+            <!-- Header -->
+            <div class="mb-8 slide-in">
+                <h1 class="text-3xl font-bold mb-2">
+                    Welcome to <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">MLOps Dashboard</span>
+                </h1>
+                <p class="text-slate-400">Real-time USD volatility prediction powered by machine learning</p>
+            </div>
+            
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Model Status -->
+                <div class="metric-card card-gradient rounded-2xl p-6 hover-lift glow">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                            <i class="fas fa-robot text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full" id="model-status-badge">Active</span>
+                    </div>
+                    <h3 class="text-slate-400 text-sm font-medium">Model Status</h3>
+                    <p class="text-2xl font-bold mt-1" id="model-version">v1.0.0</p>
+                    <p class="text-xs text-slate-500 mt-2">XGBoost Regressor</p>
+                </div>
+                
+                <!-- Predictions Today -->
+                <div class="metric-card card-gradient rounded-2xl p-6 hover-lift glow-purple">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                            <i class="fas fa-chart-bar text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs text-purple-400">+12.5%</span>
+                    </div>
+                    <h3 class="text-slate-400 text-sm font-medium">Predictions Today</h3>
+                    <p class="text-2xl font-bold mt-1" id="predictions-count">0</p>
+                    <p class="text-xs text-slate-500 mt-2">Last 24 hours</p>
+                </div>
+                
+                <!-- Avg Latency -->
+                <div class="metric-card card-gradient rounded-2xl p-6 hover-lift glow">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                            <i class="fas fa-bolt text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs text-cyan-400">Fast</span>
+                    </div>
+                    <h3 class="text-slate-400 text-sm font-medium">Avg Latency</h3>
+                    <p class="text-2xl font-bold mt-1"><span id="avg-latency">0</span>ms</p>
+                    <p class="text-xs text-slate-500 mt-2">Response time</p>
+                </div>
+                
+                <!-- Drift Score -->
+                <div class="metric-card card-gradient rounded-2xl p-6 hover-lift glow-purple">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                            <i class="fas fa-exclamation-triangle text-white text-xl"></i>
+                        </div>
+                        <span class="text-xs text-green-400" id="drift-status">Normal</span>
+                    </div>
+                    <h3 class="text-slate-400 text-sm font-medium">Drift Score</h3>
+                    <p class="text-2xl font-bold mt-1"><span id="drift-score">0</span>%</p>
+                    <p class="text-xs text-slate-500 mt-2">Data distribution</p>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Volatility Chart -->
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold">Volatility Predictions</h3>
+                        <div class="flex items-center space-x-2">
+                            <button class="chart-period px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 text-sm" data-period="1h">1H</button>
+                            <button class="chart-period px-3 py-1 rounded-lg text-slate-400 hover:bg-slate-700 text-sm" data-period="24h">24H</button>
+                            <button class="chart-period px-3 py-1 rounded-lg text-slate-400 hover:bg-slate-700 text-sm" data-period="7d">7D</button>
+                        </div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="volatilityChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Model Performance -->
+                <div class="card-gradient rounded-2xl p-6 glow-purple">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold">Model Performance</h3>
+                        <span class="text-xs text-slate-400">Last training run</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-400">RMSE</span>
+                                <span class="text-cyan-400 font-medium" id="metric-rmse">0.00045</span>
+                            </div>
+                            <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-400">MAE</span>
+                                <span class="text-purple-400 font-medium" id="metric-mae">0.00032</span>
+                            </div>
+                            <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" style="width: 90%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-400">R² Score</span>
+                                <span class="text-emerald-400 font-medium" id="metric-r2">0.876</span>
+                            </div>
+                            <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style="width: 87.6%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-slate-400">MAPE</span>
+                                <span class="text-amber-400 font-medium" id="metric-mape">4.23%</span>
+                            </div>
+                            <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full" style="width: 95.77%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="card-gradient rounded-2xl p-6 glow">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold">Recent Predictions</h3>
+                    <button class="text-sm text-cyan-400 hover:text-cyan-300 transition">View All →</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-slate-400 text-sm border-b border-slate-700">
+                                <th class="pb-3 font-medium">Timestamp</th>
+                                <th class="pb-3 font-medium">Prediction</th>
+                                <th class="pb-3 font-medium">Latency</th>
+                                <th class="pb-3 font-medium">Drift</th>
+                                <th class="pb-3 font-medium">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="predictions-table">
+                            <tr class="border-b border-slate-700/50">
+                                <td class="py-4 text-slate-300" colspan="5">
+                                    <div class="flex items-center justify-center text-slate-500">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i> Loading predictions...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Predict Page -->
+        <div id="page-predict" class="page-content hidden">
+            <div class="mb-8 slide-in">
+                <h1 class="text-3xl font-bold mb-2">
+                    <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">Make Prediction</span>
+                </h1>
+                <p class="text-slate-400">Enter feature values to predict USD volatility</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Input Form -->
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <h3 class="text-lg font-semibold mb-6 flex items-center">
+                        <i class="fas fa-sliders-h mr-2 text-cyan-400"></i>
+                        Input Features
+                    </h3>
+                    <form id="prediction-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Close Lag 1</label>
+                                <input type="number" step="any" name="close_lag_1" value="1.0854" 
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Close Rolling Mean 24</label>
+                                <input type="number" step="any" name="close_rolling_mean_24" value="1.0850"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Close Rolling Std 24</label>
+                                <input type="number" step="any" name="close_rolling_std_24" value="0.0015"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Log Return</label>
+                                <input type="number" step="any" name="log_return" value="0.0002"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Hour Sin</label>
+                                <input type="number" step="any" name="hour_sin" value="0.5"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Hour Cos</label>
+                                <input type="number" step="any" name="hour_cos" value="0.866"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Price Range</label>
+                                <input type="number" step="any" name="price_range" value="0.0012"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Price Change %</label>
+                                <input type="number" step="any" name="price_change_pct" value="0.0003"
+                                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition">
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-4 pt-4">
+                            <button type="submit" class="flex-1 bg-gradient-to-r from-cyan-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:opacity-90 transition flex items-center justify-center">
+                                <i class="fas fa-magic mr-2"></i>
+                                Predict Volatility
+                            </button>
+                            <button type="button" id="random-btn" class="px-6 bg-slate-700 text-white py-3 rounded-lg font-medium hover:bg-slate-600 transition">
+                                <i class="fas fa-random"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Results -->
+                <div class="card-gradient rounded-2xl p-6 glow-purple">
+                    <h3 class="text-lg font-semibold mb-6 flex items-center">
+                        <i class="fas fa-chart-pie mr-2 text-purple-400"></i>
+                        Prediction Result
+                    </h3>
+                    
+                    <div id="prediction-result" class="text-center py-8">
+                        <div class="w-32 h-32 mx-auto rounded-full bg-slate-800 flex items-center justify-center mb-6">
+                            <i class="fas fa-question text-4xl text-slate-500"></i>
+                        </div>
+                        <p class="text-slate-400">Enter features and click predict to see results</p>
+                    </div>
+                    
+                    <div id="prediction-success" class="hidden">
+                        <div class="text-center mb-8">
+                            <div class="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center mb-4">
+                                <span class="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent" id="result-value">0.00000</span>
+                            </div>
+                            <p class="text-slate-400 text-sm">Predicted Volatility</p>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                                <span class="text-slate-400">Model Version</span>
+                                <span class="text-white font-medium" id="result-model">-</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                                <span class="text-slate-400">Latency</span>
+                                <span class="text-cyan-400 font-medium" id="result-latency">-</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                                <span class="text-slate-400">Drift Detected</span>
+                                <span class="font-medium" id="result-drift">-</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg">
+                                <span class="text-slate-400">Timestamp</span>
+                                <span class="text-slate-300 text-sm" id="result-timestamp">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monitoring Page -->
+        <div id="page-monitoring" class="page-content hidden">
+            <div class="mb-8 slide-in">
+                <h1 class="text-3xl font-bold mb-2">
+                    <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">System Monitoring</span>
+                </h1>
+                <p class="text-slate-400">Real-time metrics and alerts for the prediction system</p>
+            </div>
+            
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                            <i class="fas fa-server text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-slate-400 text-sm">API Health</p>
+                            <p class="text-2xl font-bold text-emerald-400" id="monitor-health">Healthy</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-gradient rounded-2xl p-6 glow-purple">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                            <i class="fas fa-database text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-slate-400 text-sm">MinIO Storage</p>
+                            <p class="text-2xl font-bold text-blue-400" id="monitor-storage">Connected</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                            <i class="fas fa-flask text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-slate-400 text-sm">MLflow</p>
+                            <p class="text-2xl font-bold text-purple-400" id="monitor-mlflow">Tracking</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Latency Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <h3 class="text-lg font-semibold mb-4">Request Latency</h3>
+                    <div class="h-64">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card-gradient rounded-2xl p-6 glow-purple">
+                    <h3 class="text-lg font-semibold mb-4">Drift Monitoring</h3>
+                    <div class="h-64">
+                        <canvas id="driftChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Alerts -->
+            <div class="card-gradient rounded-2xl p-6 glow">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-bell mr-2 text-amber-400"></i>
+                        Active Alerts
+                    </h3>
+                    <span class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-400" id="alert-count">0 alerts</span>
+                </div>
+                
+                <div id="alerts-container" class="space-y-3">
+                    <div class="flex items-center justify-center py-8 text-slate-500">
+                        <i class="fas fa-check-circle mr-2 text-emerald-500"></i>
+                        No active alerts - System running normally
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pipeline Page -->
+        <div id="page-pipeline" class="page-content hidden">
+            <div class="mb-8 slide-in">
+                <h1 class="text-3xl font-bold mb-2">
+                    <span class="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">MLOps Pipeline</span>
+                </h1>
+                <p class="text-slate-400">View and manage the data processing pipeline</p>
+            </div>
+            
+            <!-- Pipeline Visualization -->
+            <div class="card-gradient rounded-2xl p-8 mb-8 glow">
+                <h3 class="text-lg font-semibold mb-8">Pipeline Flow</h3>
+                
+                <div class="flex items-center justify-between overflow-x-auto pb-4">
+                    <!-- Stage 1: Data Extraction -->
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 shadow-lg shadow-blue-500/30">
+                            <i class="fas fa-download text-white text-xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-white">Extraction</span>
+                        <span class="text-xs text-slate-400">Twelve Data API</span>
+                    </div>
+                    
+                    <div class="flex-1 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-2 rounded"></div>
+                    
+                    <!-- Stage 2: Transformation -->
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-3 shadow-lg shadow-purple-500/30">
+                            <i class="fas fa-cogs text-white text-xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-white">Transform</span>
+                        <span class="text-xs text-slate-400">Feature Engineering</span>
+                    </div>
+                    
+                    <div class="flex-1 h-1 bg-gradient-to-r from-purple-500 to-cyan-500 mx-2 rounded"></div>
+                    
+                    <!-- Stage 3: Training -->
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center mb-3 shadow-lg shadow-cyan-500/30">
+                            <i class="fas fa-brain text-white text-xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-white">Training</span>
+                        <span class="text-xs text-slate-400">XGBoost Model</span>
+                    </div>
+                    
+                    <div class="flex-1 h-1 bg-gradient-to-r from-cyan-500 to-emerald-500 mx-2 rounded"></div>
+                    
+                    <!-- Stage 4: Deployment -->
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mb-3 shadow-lg shadow-emerald-500/30">
+                            <i class="fas fa-rocket text-white text-xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-white">Deployment</span>
+                        <span class="text-xs text-slate-400">FastAPI Service</span>
+                    </div>
+                    
+                    <div class="flex-1 h-1 bg-gradient-to-r from-emerald-500 to-amber-500 mx-2 rounded"></div>
+                    
+                    <!-- Stage 5: Monitoring -->
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center mb-3 shadow-lg shadow-amber-500/30">
+                            <i class="fas fa-chart-line text-white text-xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-white">Monitoring</span>
+                        <span class="text-xs text-slate-400">Prometheus/Grafana</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pipeline Components -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Airflow DAGs -->
+                <div class="card-gradient rounded-2xl p-6 glow">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-wind mr-2 text-cyan-400"></i>
+                        Airflow DAGs
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span class="text-slate-300">usd_volatility_etl_pipeline</span>
+                            </div>
+                            <span class="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Active</span>
+                        </div>
+                    </div>
+                    <a href="http://localhost:8080" target="_blank" class="mt-4 inline-flex items-center text-cyan-400 hover:text-cyan-300 text-sm">
+                        Open Airflow UI <i class="fas fa-external-link-alt ml-2"></i>
+                    </a>
+                </div>
+                
+                <!-- External Links -->
+                <div class="card-gradient rounded-2xl p-6 glow-purple">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-link mr-2 text-purple-400"></i>
+                        Quick Links
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <a href="http://localhost:8080" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-wind text-cyan-400"></i>
+                            <span class="text-slate-300 text-sm">Airflow</span>
+                        </a>
+                        <a href="http://localhost:5000" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-flask text-purple-400"></i>
+                            <span class="text-slate-300 text-sm">MLflow</span>
+                        </a>
+                        <a href="http://localhost:9090" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-fire text-orange-400"></i>
+                            <span class="text-slate-300 text-sm">Prometheus</span>
+                        </a>
+                        <a href="http://localhost:3000" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-chart-area text-emerald-400"></i>
+                            <span class="text-slate-300 text-sm">Grafana</span>
+                        </a>
+                        <a href="http://localhost:9001" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-database text-blue-400"></i>
+                            <span class="text-slate-300 text-sm">MinIO</span>
+                        </a>
+                        <a href="/docs" target="_blank" class="flex items-center space-x-2 p-3 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition">
+                            <i class="fas fa-book text-amber-400"></i>
+                            <span class="text-slate-300 text-sm">API Docs</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="border-t border-slate-700/50 py-6 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between">
+                <p class="text-slate-400 text-sm">
+                    © 2025 USD Volatility Prediction System | MLOps Project
+                </p>
+                <div class="flex items-center space-x-4 mt-4 md:mt-0">
+                    <a href="https://github.com" target="_blank" class="text-slate-400 hover:text-white transition">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                    <a href="#" class="text-slate-400 hover:text-white transition">
+                        <i class="fas fa-book text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

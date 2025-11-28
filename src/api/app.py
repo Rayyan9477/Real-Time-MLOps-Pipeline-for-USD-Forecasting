@@ -76,6 +76,9 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response schema for prediction endpoint."""
+    
+    model_config = {"protected_namespaces": ()}
+    
     prediction: float = Field(..., description="Predicted volatility value")
     model_version: str = Field(..., description="Model version used for prediction")
     timestamp: str = Field(..., description="Prediction timestamp")
@@ -85,6 +88,9 @@ class PredictionResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Response schema for health check."""
+    
+    model_config = {"protected_namespaces": ()}
+    
     status: str
     model_loaded: bool
     model_version: Optional[str]

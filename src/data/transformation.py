@@ -229,9 +229,9 @@ class DataCleaner:
         initial_nulls = df_clean.isnull().sum().sum()
         
         if method == "forward":
-            df_clean = df_clean.fillna(method="ffill")
+            df_clean = df_clean.ffill()
         elif method == "backward":
-            df_clean = df_clean.fillna(method="bfill")
+            df_clean = df_clean.bfill()
         elif method == "drop":
             df_clean = df_clean.dropna()
         
