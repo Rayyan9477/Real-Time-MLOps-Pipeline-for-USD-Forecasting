@@ -1,11 +1,11 @@
 """Data module for extraction and transformation."""
 
-from src.data.extraction import (
+from src.data.data_extraction import (
     TwelveDataClient,
     DataQualityChecker,
     extract_forex_data
 )
-from src.data.transformation import (
+from src.data.data_transformation import (
     FeatureEngineer,
     DataCleaner,
     transform_data,

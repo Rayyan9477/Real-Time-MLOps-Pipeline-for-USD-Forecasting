@@ -12,8 +12,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.data.transformation import FeatureEngineer, DataCleaner, transform_data
-from src.monitoring.drift_detector import DriftDetector
+from src.data.data_transformation import FeatureEngineer, DataCleaner, transform_data
+from src.monitoring.drift import DriftDetector
 
 
 class TestDataPipeline:

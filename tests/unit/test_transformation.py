@@ -4,7 +4,7 @@ Unit tests for data transformation module.
 import pytest
 import pandas as pd
 import numpy as np
-from src.data.transformation import FeatureEngineer, DataCleaner
+from src.data.data_transformation import FeatureEngineer, DataCleaner
 
 
 class TestFeatureEngineer:

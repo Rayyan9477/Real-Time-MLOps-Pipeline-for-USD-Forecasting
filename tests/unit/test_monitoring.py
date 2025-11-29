@@ -4,8 +4,8 @@ Unit tests for monitoring module.
 import pytest
 import pandas as pd
 import numpy as np
-from src.monitoring.drift_detector import DriftDetector, DriftResult
-from src.monitoring.alert_manager import AlertManager, AlertRule, AlertSeverity
+from src.monitoring.drift import DriftDetector, DriftResult
+from src.monitoring.alerts import AlertManager, AlertRule, AlertSeverity
 
 
 class TestDriftDetector:

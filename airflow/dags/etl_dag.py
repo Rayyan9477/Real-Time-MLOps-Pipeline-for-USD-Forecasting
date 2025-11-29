@@ -13,8 +13,8 @@ from pathlib import Path
 project_root = Path("/opt/airflow")
 sys.path.insert(0, str(project_root))
 
-from src.data.extraction import extract_forex_data, DataQualityChecker
-from src.data.transformation import transform_data, generate_data_profile
+from src.data.data_extraction import extract_forex_data, DataQualityChecker
+from src.data.data_transformation import transform_data, generate_data_profile
 from src.utils.storage import MinIOClient
 from src.utils.logger import get_logger
 

@@ -4,7 +4,7 @@ Unit tests for data extraction module.
 import pytest
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock
-from src.data.extraction import TwelveDataClient, DataQualityChecker, extract_forex_data
+from src.data.data_extraction import TwelveDataClient, DataQualityChecker, extract_forex_data
 
 
 class TestTwelveDataClient:
@@ -12,7 +12,7 @@ class TestTwelveDataClient:
     
     def test_init_without_api_key(self):
         """Test initialization fails without API key."""
-        with patch('src.data.extraction.TWELVE_DATA_CONFIG', {
+        with patch('src.data.data_extraction.TWELVE_DATA_CONFIG', {
             "api_key": "",
             "base_url": "https://api.test.com",
             "symbol": "EUR/USD",
@@ -23,7 +23,7 @@ class TestTwelveDataClient:
     
     def test_init_with_api_key(self):
         """Test successful initialization with API key."""
-        with patch('src.data.extraction.TWELVE_DATA_CONFIG', {
+        with patch('src.data.data_extraction.TWELVE_DATA_CONFIG', {
             "api_key": "test_key",
             "base_url": "https://api.test.com",
             "symbol": "EUR/USD",
@@ -46,7 +46,7 @@ class TestTwelveDataClient:
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
         
-        with patch('src.data.extraction.TWELVE_DATA_CONFIG', {
+        with patch('src.data.data_extraction.TWELVE_DATA_CONFIG', {
             "api_key": "test_key",
             "base_url": "https://api.test.com",
             "symbol": "EUR/USD",
@@ -70,7 +70,7 @@ class TestTwelveDataClient:
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
         
-        with patch('src.data.extraction.TWELVE_DATA_CONFIG', {
+        with patch('src.data.data_extraction.TWELVE_DATA_CONFIG', {
             "api_key": "test_key",
             "base_url": "https://api.test.com",
             "symbol": "EUR/USD",

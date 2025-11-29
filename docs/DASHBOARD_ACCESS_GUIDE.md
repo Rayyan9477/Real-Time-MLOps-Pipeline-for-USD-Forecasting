@@ -6,10 +6,25 @@ Complete guide for accessing and configuring all dashboards in the Real-Time MLO
 
 ## 🎯 Quick Access URLs
 
-Once the infrastructure is running, access dashboards at:
+### For GitHub Codespaces
+
+Replace `{CODESPACE_NAME}` with your codespace name (e.g., `cuddly-eureka-v4pjvxx7vwg24x9`):
 
 | Service | URL | Default Credentials | Purpose |
 |---------|-----|---------------------|---------|
+| **Dashboard** | `https://{CODESPACE_NAME}-8000.app.github.dev/dashboard` | No auth | Main prediction dashboard |
+| **Airflow** | `https://{CODESPACE_NAME}-8080.app.github.dev` | `airflow` / `airflow` | Workflow orchestration |
+| **MLflow** | `https://{CODESPACE_NAME}-5000.app.github.dev` | No auth | Experiment tracking |
+| **Grafana** | `https://{CODESPACE_NAME}-3000.app.github.dev` | `admin` / `admin` | Metrics visualization |
+| **Prometheus** | `https://{CODESPACE_NAME}-9090.app.github.dev` | No auth | Metrics collection |
+| **MinIO** | `https://{CODESPACE_NAME}-9001.app.github.dev` | `minioadmin` / `minioadmin` | Object storage |
+| **API Docs** | `https://{CODESPACE_NAME}-8000.app.github.dev/docs` | No auth | API documentation |
+
+### For Local Development
+
+| Service | URL | Default Credentials | Purpose |
+|---------|-----|---------------------|---------|
+| **Dashboard** | http://localhost:8000/dashboard | No auth | Main prediction dashboard |
 | **Airflow** | http://localhost:8080 | `airflow` / `airflow` | Workflow orchestration & DAG monitoring |
 | **MLflow** | http://localhost:5000 | No auth required | Experiment tracking & model registry |
 | **Grafana** | http://localhost:3000 | `admin` / `admin` | Metrics visualization & alerting |
@@ -26,30 +41,30 @@ Once the infrastructure is running, access dashboards at:
 ```bash
 # Ensure Docker and Docker Compose are installed
 docker --version
-docker-compose --version
+docker compose version
 
-# Clone the repository
+# Navigate to project directory
 cd /workspaces/Real-Time-MLOps-Pipeline-for-USD-Forecasting
 ```
 
 ### Start All Services
 ```bash
 # Start all infrastructure services
-docker-compose up -d
+docker compose up -d
 
 # Check service status
-docker-compose ps
+docker compose ps
 
 # View logs for specific service
-docker-compose logs -f airflow-webserver
-docker-compose logs -f mlflow
-docker-compose logs -f grafana
+docker compose logs -f airflow-webserver
+docker compose logs -f mlflow
+docker compose logs -f grafana
 ```
 
 ### Service Health Check
 ```bash
 # Wait for all services to be healthy (may take 1-2 minutes)
-watch docker-compose ps
+watch docker compose ps
 
 # Test service connectivity
 curl http://localhost:8080/health  # Airflow

@@ -13,6 +13,19 @@ scrape_configs:
   # FastAPI prediction service
   - job_name: 'prediction-api'
     static_configs:
-      - targets: ['host.docker.internal:8000']
+      - targets: ['172.17.0.1:8000']  # Docker bridge gateway
     metrics_path: '/metrics'
     scrape_interval: 10s
+
+  # MinIO metrics
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: '/minio/v2/metrics/cluster'
+    scrape_interval: 30s
+
+  # Node metrics (optional)
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['172.17.0.1:9323']
+    scrape_interval: 30s
