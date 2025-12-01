@@ -1,0 +1,22 @@
+---
+# yamllint configuration for MLOps project
+
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+
+  document-start:
+    present: false
+
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever
+
+  comments:
+    min-spaces-from-content: 1

@@ -1,0 +1,102 @@
+groups:
+  - name: mlops_alerts
+    interval: 30s
+    rules:
+      # High prediction latency alert
+      - alert: HighPredictionLatency
+        expr: histogram_quantile(0.95, rate(prediction_latency_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: prediction-api
+        annotations:
+          summary: "High prediction latency detected"
+          description: "95th percentile latency is {{ $value }}s (threshold: 0.5s)"
+
+      # Critical prediction latency alert
+      - alert: CriticalPredictionLatency
+        expr: histogram_quantile(0.95, rate(prediction_latency_seconds_bucket[5m])) > 1.0
+        for: 2m
+        labels:
+          severity: critical
+          component: prediction-api
+        annotations:
+          summary: "CRITICAL: Prediction latency is very high"
+          description: "95th percentile latency is {{ $value }}s (threshold: 1.0s)"
+
+      # High data drift alert
+      - alert: HighDataDrift
+        expr: data_drift_ratio > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          component: drift-detection
+        annotations:
+          summary: "High data drift detected"
+          description: "Drift ratio is {{ $value | humanizePercentage }} (threshold: 20%)"
+
+      # Critical data drift alert
+      - alert: CriticalDataDrift
+        expr: data_drift_ratio > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          component: drift-detection
+        annotations:
+          summary: "CRITICAL: Very high data drift"
+          description: "Drift ratio is {{ $value | humanizePercentage }} (threshold: 50%). Model retraining recommended."
+
+      # Prediction error rate alert
+      - alert: HighErrorRate
+        expr: rate(prediction_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: prediction-api
+        annotations:
+          summary: "High prediction error rate"
+          description: "Error rate is {{ $value | humanize }} errors/sec"
+
+      # Service down alert
+      - alert: PredictionAPIDown
+        expr: up{job="prediction-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: prediction-api
+        annotations:
+          summary: "Prediction API is down"
+          description: "The prediction API service has been down for more than 1 minute"
+
+      # Low request rate (might indicate issues)
+      - alert: LowPredictionRate
+        expr: rate(predictions_total[10m]) < 0.01
+        for: 15m
+        labels:
+          severity: info
+          component: prediction-api
+        annotations:
+          summary: "Low prediction request rate"
+          description: "Prediction rate is {{ $value | humanize }} req/sec (very low activity)"
+
+      # MinIO health check
+      - alert: MinIODown
+        expr: up{job="minio"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "MinIO service is down"
+          description: "MinIO object storage has been unavailable for 2 minutes"
+
+      # Model staleness (if no predictions for extended period)
+      - alert: ModelStale
+        expr: (time() - timestamp(predictions_total)) > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: model
+        annotations:
+          summary: "Model might be stale"
+          description: "No predictions received in the last hour. Check if model is loaded."
