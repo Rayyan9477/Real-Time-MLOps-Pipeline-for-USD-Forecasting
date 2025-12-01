@@ -59,10 +59,12 @@ mlartifacts/
 
 # Data files
 data/raw/
-data/processed/
+data/processed/*
+!data/processed/*.dvc
 *.csv
 *.parquet
 *.json
+!*.dvc
 !.gitkeep
 
 # Docker
