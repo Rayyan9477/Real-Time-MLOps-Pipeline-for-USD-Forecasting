@@ -2,7 +2,7 @@ name: Model Training and CML Report
 
 on:
   pull_request:
-    branches: [test]
+    branches: [main]
 
 jobs:
   train-and-compare:
@@ -20,9 +20,9 @@ jobs:
           export $(cat .env | grep -v '^#' | xargs)
           echo "DOCKER_USERNAME=${DOCKER_USERNAME}" >> $GITHUB_ENV
           echo "DOCKER_PASSWORD=${DOCKER_PASSWORD}" >> $GITHUB_ENV
-          echo "MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}" >> $GITHUB_ENV
-          echo "MLFLOW_TRACKING_USERNAME=${MLFLOW_TRACKING_USERNAME}" >> $GITHUB_ENV
-          echo "MLFLOW_TRACKING_PASSWORD=${MLFLOW_TRACKING_PASSWORD}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_URI=https://dagshub.com/${DAGSHUB_USERNAME}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_USERNAME=${DAGSHUB_USERNAME}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_PASSWORD=${DAGSHUB_TOKEN}" >> $GITHUB_ENV
           echo "TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}" >> $GITHUB_ENV
           echo "DAGSHUB_USERNAME=${DAGSHUB_USERNAME}" >> $GITHUB_ENV
           echo "DAGSHUB_TOKEN=${DAGSHUB_TOKEN}" >> $GITHUB_ENV
@@ -57,7 +57,7 @@ jobs:
 
     - name: Train model
       run: |
-        python src/models/train.py --experiment "ci_cd_testing"
+        python src/models/trainer.py --experiment "ci_cd_testing"
 
     - name: Generate metrics report
       run: |
@@ -98,7 +98,7 @@ jobs:
         echo "" >> report.md
         echo "---" >> report.md
         echo "### Recommendation" >> report.md
-        echo "✓ Review metrics above before merging to test branch" >> report.md
+        echo "✓ Review metrics above before merging to main branch" >> report.md
         echo "✓ Ensure RMSE has not degraded by more than 10%" >> report.md
         echo "✓ Check drift ratio is within acceptable limits" >> report.md
 
