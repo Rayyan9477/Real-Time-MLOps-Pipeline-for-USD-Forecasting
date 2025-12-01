@@ -12,6 +12,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Load environment variables
+      run: |
+        if [ -f .env ]; then
+          export $(cat .env | grep -v '^#' | xargs)
+          echo "DOCKER_USERNAME=${DOCKER_USERNAME}" >> $GITHUB_ENV
+          echo "DOCKER_PASSWORD=${DOCKER_PASSWORD}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_USERNAME=${MLFLOW_TRACKING_USERNAME}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_PASSWORD=${MLFLOW_TRACKING_PASSWORD}" >> $GITHUB_ENV
+          echo "TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -28,15 +40,11 @@ jobs:
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ env.DOCKER_USERNAME }}
+        password: ${{ env.DOCKER_PASSWORD }}
 
     - name: Get model version from MLflow
       id: model_version
-      env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-        MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
-        MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
       run: |
         VERSION=$(python -c "
         import mlflow
@@ -56,20 +64,20 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:latest
-          ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
-        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache,mode=max
+          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+        cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache
+        cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache,mode=max
 
     - name: Verify deployment
       run: |
         echo "Testing Docker image..."
         docker run -d --name test-container \
           -p 8000:8000 \
-          -e MLFLOW_TRACKING_URI="${{ secrets.MLFLOW_TRACKING_URI }}" \
-          -e MLFLOW_TRACKING_USERNAME="${{ secrets.MLFLOW_TRACKING_USERNAME }}" \
-          -e MLFLOW_TRACKING_PASSWORD="${{ secrets.MLFLOW_TRACKING_PASSWORD }}" \
-          ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+          -e MLFLOW_TRACKING_URI="${{ env.MLFLOW_TRACKING_URI }}" \
+          -e MLFLOW_TRACKING_USERNAME="${{ env.MLFLOW_TRACKING_USERNAME }}" \
+          -e MLFLOW_TRACKING_PASSWORD="${{ env.MLFLOW_TRACKING_PASSWORD }}" \
+          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
 
         # Wait for container to start
         sleep 15
@@ -94,12 +102,12 @@ jobs:
           ## USD Volatility Predictor - Production Release
 
           **Model Version**: ${{ steps.model_version.outputs.version }}
-          **Docker Image**: ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+          **Docker Image**: ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
 
           ### Deployment
           ```bash
-          docker pull ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
-          docker run -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+          docker pull ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+          docker run -p 8000:8000 ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
           ```
         draft: false
         prerelease: false

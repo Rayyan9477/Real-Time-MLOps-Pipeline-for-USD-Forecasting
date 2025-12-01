@@ -14,6 +14,20 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Load environment variables
+      run: |
+        if [ -f .env ]; then
+          export $(cat .env | grep -v '^#' | xargs)
+          echo "DOCKER_USERNAME=${DOCKER_USERNAME}" >> $GITHUB_ENV
+          echo "DOCKER_PASSWORD=${DOCKER_PASSWORD}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_USERNAME=${MLFLOW_TRACKING_USERNAME}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_PASSWORD=${MLFLOW_TRACKING_PASSWORD}" >> $GITHUB_ENV
+          echo "TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}" >> $GITHUB_ENV
+          echo "DAGSHUB_USERNAME=${DAGSHUB_USERNAME}" >> $GITHUB_ENV
+          echo "DAGSHUB_TOKEN=${DAGSHUB_TOKEN}" >> $GITHUB_ENV
+        fi
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -27,13 +41,12 @@ jobs:
     - name: Setup DVC
       uses: iterative/setup-dvc@v1
 
-    - name: Configure DVC remote
-      env:
-        DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+    - name: Configure DVC for DagsHub
       run: |
-        dvc remote modify origin --local auth basic
-        dvc remote modify origin --local user ${{ secrets.DAGSHUB_USERNAME }}
-        dvc remote modify origin --local password ${DAGSHUB_TOKEN}
+        dvc remote add -d dagshub https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc
+        dvc remote modify dagshub --local auth basic
+        dvc remote modify dagshub --local user ${{ env.DAGSHUB_USERNAME }}
+        dvc remote modify dagshub --local password ${{ env.DAGSHUB_TOKEN }}
 
     - name: Pull latest data with DVC
       run: |
@@ -43,19 +56,10 @@ jobs:
       uses: iterative/setup-cml@v1
 
     - name: Train model
-      env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-        MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
-        MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
-        TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
       run: |
         python src/models/train.py --experiment "ci_cd_testing"
 
     - name: Generate metrics report
-      env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-        MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
-        MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
       run: |
         python -c "
         import mlflow

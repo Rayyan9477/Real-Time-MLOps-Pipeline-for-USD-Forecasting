@@ -1,4 +1,5 @@
 [core]
-    remote = gdrive
-['remote "gdrive"']
-    url = gdrive://10fOdO5PFMHlQ9ydSgJ9-GoW2F00bv56-
+    remote = dagshub
+['remote "dagshub"']
+    url = https://dagshub.com/Rayyan9477/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc
+    auth = basic
