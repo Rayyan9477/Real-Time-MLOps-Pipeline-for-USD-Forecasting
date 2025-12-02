@@ -2,6 +2,7 @@
 Configuration management for the MLOps pipeline.
 Loads environment variables and provides centralized configuration.
 """
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -44,7 +45,7 @@ MINIO_CONFIG = {
 MLFLOW_CONFIG = {
     "tracking_uri": os.getenv(
         "MLFLOW_TRACKING_URI",
-        "https://dagshub.com/your_username/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow"
+        "https://dagshub.com/your_username/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow",
     ),
     "tracking_username": os.getenv("MLFLOW_TRACKING_USERNAME", ""),
     "tracking_password": os.getenv("MLFLOW_TRACKING_PASSWORD", ""),
@@ -101,6 +102,8 @@ DOCKER_CONFIG = {
 # Dagshub Configuration
 DAGSHUB_CONFIG = {
     "repo_owner": os.getenv("DAGSHUB_REPO_OWNER", ""),
-    "repo_name": os.getenv("DAGSHUB_REPO_NAME", "Real-Time-MLOps-Pipeline-for-USD-Forecasting"),
+    "repo_name": os.getenv(
+        "DAGSHUB_REPO_NAME", "Real-Time-MLOps-Pipeline-for-USD-Forecasting"
+    ),
     "token": os.getenv("DAGSHUB_TOKEN", ""),
 }

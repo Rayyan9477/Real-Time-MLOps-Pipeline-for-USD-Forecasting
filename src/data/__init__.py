@@ -3,13 +3,13 @@
 from src.data.data_extraction import (
     TwelveDataClient,
     DataQualityChecker,
-    extract_forex_data
+    extract_forex_data,
 )
 from src.data.data_transformation import (
     FeatureEngineer,
     DataCleaner,
     transform_data,
-    generate_data_profile
+    generate_data_profile,
 )
 
 __all__ = [
@@ -19,5 +19,5 @@ __all__ = [
     "FeatureEngineer",
     "DataCleaner",
     "transform_data",
-    "generate_data_profile"
+    "generate_data_profile",
 ]

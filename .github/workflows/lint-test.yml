@@ -16,12 +16,9 @@ jobs:
 
     - name: Load environment variables
       run: |
-        if [ -f .env ]; then
-          export $(cat .env | grep -v '^#' | xargs)
-          echo "TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY}" >> $GITHUB_ENV
-          echo "DAGSHUB_USERNAME=${DAGSHUB_USERNAME}" >> $GITHUB_ENV
-          echo "DAGSHUB_TOKEN=${DAGSHUB_TOKEN}" >> $GITHUB_ENV
-        fi
+        echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> $GITHUB_ENV
+        echo "DAGSHUB_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
+        echo "DAGSHUB_TOKEN=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
 
     - name: Set up Python
       uses: actions/setup-python@v4

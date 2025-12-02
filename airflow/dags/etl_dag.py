@@ -13,12 +13,18 @@ from pathlib import Path
 project_root = Path("/opt/airflow")
 sys.path.insert(0, str(project_root))
 
-from src.data.data_extraction import extract_forex_data, DataQualityChecker
-from src.data.data_transformation import transform_data, generate_data_profile
-from src.utils.storage import MinIOClient
-from src.utils.logger import get_logger
+try:
+    from src.data.data_extraction import extract_forex_data, DataQualityChecker
+    from src.data.data_transformation import transform_data, generate_data_profile
+    from src.utils.storage import MinIOClient
+    from src.utils.logger import get_logger
+    IMPORTS_SUCCESSFUL = True
+except ImportError as e:
+    logger = None
+    IMPORTS_SUCCESSFUL = False
+    print(f"Warning: Some imports failed: {e}. DAG will not function properly.")
 
-logger = get_logger("etl_dag")
+logger = get_logger("etl_dag") if IMPORTS_SUCCESSFUL else None
 
 # Default arguments for the DAG
 default_args = {
@@ -37,6 +43,9 @@ def extract_data_task(**context):
     Task 1: Extract data from Twelve Data API with quality checks.
     Raises AirflowException if quality checks fail.
     """
+    if not IMPORTS_SUCCESSFUL:
+        raise AirflowException("Required modules not available. Please ensure all dependencies are installed.")
+    
     logger.info("=" * 60)
     logger.info("TASK 1: DATA EXTRACTION")
     logger.info("=" * 60)
@@ -61,6 +70,9 @@ def transform_data_task(**context):
     """
     Task 2: Transform data with feature engineering.
     """
+    if not IMPORTS_SUCCESSFUL:
+        raise AirflowException("Required modules not available. Please ensure all dependencies are installed.")
+    
     logger.info("=" * 60)
     logger.info("TASK 2: DATA TRANSFORMATION")
     logger.info("=" * 60)
@@ -103,6 +115,9 @@ def load_to_minio_task(**context):
     """
     Task 3: Upload processed data to MinIO object storage.
     """
+    if not IMPORTS_SUCCESSFUL:
+        raise AirflowException("Required modules not available. Please ensure all dependencies are installed.")
+    
     logger.info("=" * 60)
     logger.info("TASK 3: LOAD TO MINIO")
     logger.info("=" * 60)
@@ -138,6 +153,9 @@ def version_with_dvc_task(**context):
     """
     Task 4: Version data with DVC and push to Dagshub remote.
     """
+    if not IMPORTS_SUCCESSFUL:
+        raise AirflowException("Required modules not available. Please ensure all dependencies are installed.")
+    
     logger.info("=" * 60)
     logger.info("TASK 4: VERSION WITH DVC")
     logger.info("=" * 60)
@@ -196,6 +214,9 @@ def log_mlflow_artifacts_task(**context):
     """
     Task 5: Log data profile report to MLflow.
     """
+    if not IMPORTS_SUCCESSFUL:
+        raise AirflowException("Required modules not available. Please ensure all dependencies are installed.")
+    
     logger.info("=" * 60)
     logger.info("TASK 5: LOG ARTIFACTS TO MLFLOW")
     logger.info("=" * 60)

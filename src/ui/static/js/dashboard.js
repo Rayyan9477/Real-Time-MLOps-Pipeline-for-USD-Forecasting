@@ -11,6 +11,27 @@ const CONFIG = {
     MAX_TABLE_ROWS: 10
 };
 
+// Get GitHub Codespaces URLs
+function getCodespacesUrl(port) {
+    const hostname = window.location.hostname;
+    if (hostname.includes('github.dev')) {
+        // Extract codespace name (everything before .github.dev)
+        const codespaceName = hostname.split('.')[0];
+        return `https://${codespaceName}-${port}.app.github.dev`;
+    }
+    // Fallback to localhost for local development
+    return `http://localhost:${port}`;
+}
+
+// Service URLs
+const SERVICE_URLS = {
+    grafana: getCodespacesUrl(3000),
+    prometheus: getCodespacesUrl(9090),
+    mlflow: getCodespacesUrl(5000),
+    airflow: getCodespacesUrl(8080),
+    minio: getCodespacesUrl(9001)
+};
+
 // State Management
 const state = {
     predictions: [],
@@ -334,6 +355,22 @@ function displayPredictionResult(data) {
     }
     
     if (resultTimestamp) resultTimestamp.textContent = new Date(data.timestamp).toLocaleString();
+    
+    // Update interpretation display
+    const interpretationEl = document.getElementById('result-interpretation');
+    const riskLevelEl = document.getElementById('result-risk-level');
+    const confidenceEl = document.getElementById('result-confidence');
+    
+    if (interpretationEl) interpretationEl.textContent = data.prediction_interpretation || 'No interpretation available';
+    if (riskLevelEl) {
+        riskLevelEl.textContent = data.risk_level || 'Unknown';
+        // Color code risk level
+        riskLevelEl.className = 'font-medium px-2 py-1 rounded text-sm ' + 
+            (data.risk_level === 'Low' ? 'bg-green-100 text-green-800' :
+             data.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+             data.risk_level === 'High' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800');
+    }
+    if (confidenceEl) confidenceEl.textContent = data.confidence_score || 'Unknown';
 }
 
 // Random values button

@@ -38,9 +38,9 @@ ENV/
 .ipynb_checkpoints
 
 # Environment variables
-# Note: .env is committed for GitHub Actions to access credentials
-# For production, use GitHub Secrets instead
+.env
 .env.local
+.env.*.local
 
 # Airflow
 airflow/logs/

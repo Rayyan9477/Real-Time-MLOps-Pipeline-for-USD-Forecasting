@@ -470,7 +470,20 @@
                             <div class="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center mb-4">
                                 <span class="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent" id="result-value">0.00000</span>
                             </div>
-                            <p class="text-slate-400 text-sm">Predicted Volatility</p>
+                            <p class="text-slate-400 text-sm mb-4">Predicted Volatility</p>
+                            <div class="p-4 bg-slate-800/50 rounded-lg mb-4">
+                                <p class="text-white text-sm leading-relaxed" id="result-interpretation">Loading interpretation...</p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 mb-4">
+                                <div class="text-center p-3 bg-slate-800/50 rounded-lg">
+                                    <p class="text-slate-400 text-xs">Risk Level</p>
+                                    <p class="font-medium" id="result-risk-level">Unknown</p>
+                                </div>
+                                <div class="text-center p-3 bg-slate-800/50 rounded-lg">
+                                    <p class="text-slate-400 text-xs">Confidence</p>
+                                    <p class="text-cyan-400 font-medium" id="result-confidence">Unknown</p>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="space-y-3">
@@ -728,5 +741,35 @@
     </footer>
 
     <script src="/static/js/dashboard.js"></script>
+    <script>
+        // Update service links for GitHub Codespaces
+        document.addEventListener('DOMContentLoaded', function() {
+            // Function to get GitHub Codespaces URL
+            function getCodespacesUrl(port) {
+                const hostname = window.location.hostname;
+                if (hostname.includes('github.dev')) {
+                    const codespaceName = hostname.split('.')[0];
+                    return `https://${codespaceName}-${port}.app.github.dev`;
+                }
+                return `http://localhost:${port}`;
+            }
+
+            // Update all service links
+            const linkMappings = [
+                { selector: 'a[href*="localhost:3000"]', port: 3000 }, // Grafana
+                { selector: 'a[href*="localhost:9090"]', port: 9090 }, // Prometheus
+                { selector: 'a[href*="localhost:5000"]', port: 5000 }, // MLflow
+                { selector: 'a[href*="localhost:8080"]', port: 8080 }, // Airflow
+                { selector: 'a[href*="localhost:9001"]', port: 9001 }  // MinIO
+            ];
+
+            linkMappings.forEach(mapping => {
+                const links = document.querySelectorAll(mapping.selector);
+                links.forEach(link => {
+                    link.href = getCodespacesUrl(mapping.port);
+                });
+            });
+        });
+    </script>
 </body>
 </html>
