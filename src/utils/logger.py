@@ -54,7 +54,7 @@ def setup_logger(name: str, log_file: str = None, level=logging.INFO):
 
 def get_logger(name: str):
     """Get or create a logger with standard configuration."""
-    from config.config import LOGS_DIR
+    from config import LOGS_DIR
 
     log_file = LOGS_DIR / f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
     return setup_logger(name, str(log_file))

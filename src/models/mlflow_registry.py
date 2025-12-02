@@ -20,7 +20,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config.config import MODELS_DIR, DATA_DIR
+from config import MODELS_DIR, DATA_DIR
 from src.utils.logger import get_logger
 
 logger = get_logger("mlflow_register")

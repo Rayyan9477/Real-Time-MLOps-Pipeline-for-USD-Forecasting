@@ -8,7 +8,7 @@ import pandas as pd
 from typing import Tuple
 from scipy import stats
 
-from config.config import MODEL_CONFIG, DATA_QUALITY_CONFIG, PROCESSED_DATA_DIR
+from config import MODEL_CONFIG, DATA_QUALITY_CONFIG, PROCESSED_DATA_DIR
 from src.utils.logger import get_logger
 
 logger = get_logger("data_transformation")
@@ -392,7 +392,7 @@ def generate_data_profile(df: pd.DataFrame, output_path: str = None) -> str:
 
         if output_path is None:
             from datetime import datetime
-            from config.config import REPORTS_DIR
+            from config import REPORTS_DIR
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = str(REPORTS_DIR / f"data_profile_{timestamp}.html")

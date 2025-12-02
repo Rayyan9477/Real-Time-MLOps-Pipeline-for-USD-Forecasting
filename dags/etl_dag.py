@@ -272,7 +272,7 @@ with DAG(
     dag_id='usd_volatility_etl_pipeline',
     default_args=default_args,
     description='ETL pipeline for USD volatility prediction',
-    schedule='0 0 * * *',  # Daily at midnight
+    schedule_interval='0 0 * * *',  # Daily at midnight
     catchup=False,
     tags=['etl', 'forex', 'mlops'],
 ) as dag:
@@ -281,30 +281,35 @@ with DAG(
     extract_task = PythonOperator(
         task_id='extract_data',
         python_callable=extract_data_task,
+        provide_context=True,
     )
     
     # Task 2: Transform data
     transform_task = PythonOperator(
         task_id='transform_data',
         python_callable=transform_data_task,
+        provide_context=True,
     )
     
     # Task 3: Load to MinIO
     load_task = PythonOperator(
         task_id='load_to_minio',
         python_callable=load_to_minio_task,
+        provide_context=True,
     )
     
     # Task 4: Version with DVC
     version_task = PythonOperator(
         task_id='version_with_dvc',
         python_callable=version_with_dvc_task,
+        provide_context=True,
     )
     
     # Task 5: Log to MLflow
     mlflow_task = PythonOperator(
         task_id='log_mlflow_artifacts',
         python_callable=log_mlflow_artifacts_task,
+        provide_context=True,
     )
     
     # Define task dependencies

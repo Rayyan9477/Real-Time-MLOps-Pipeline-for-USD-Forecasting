@@ -31,7 +31,7 @@ import sqlite3
 from collections import deque
 import threading
 
-from config.config import MODELS_DIR, DATA_DIR, MONITORING_CONFIG
+from config import MODELS_DIR, DATA_DIR, MONITORING_CONFIG
 from src.utils.logger import get_logger
 
 # Initialize logger
@@ -672,7 +672,7 @@ async def get_drift_history():
 
 if __name__ == "__main__":
     import uvicorn
-    from config.config import API_CONFIG
+    from config import API_CONFIG
 
     uvicorn.run(
         "src.api.app:app",

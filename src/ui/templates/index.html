@@ -747,8 +747,20 @@
             // Function to get GitHub Codespaces URL
             function getCodespacesUrl(port) {
                 const hostname = window.location.hostname;
-                if (hostname.includes('github.dev')) {
-                    const codespaceName = hostname.split('.')[0];
+                // Check if we're in GitHub Codespaces
+                if (hostname.includes('github.dev') || hostname.includes('app.github.dev')) {
+                    // Extract codespace name from URL or use the known codespace name
+                    let codespaceName = 'cuddly-eureka-v4pjvxx7vwg24x9'; // Default codespace name
+                    
+                    // Try to extract from hostname if possible
+                    if (hostname.includes('-')) {
+                        const parts = hostname.split('-');
+                        if (parts.length >= 4) {
+                            // Remove the port suffix and reconstruct codespace name
+                            codespaceName = parts.slice(0, -1).join('-');
+                        }
+                    }
+                    
                     return `https://${codespaceName}-${port}.app.github.dev`;
                 }
                 return `http://localhost:${port}`;

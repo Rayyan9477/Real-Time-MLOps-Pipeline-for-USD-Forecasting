@@ -18,7 +18,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from scipy.stats import ks_2samp
 import xgboost as xgb
 
-from config.config import (
+from config import (
     MLFLOW_CONFIG,
     MODEL_CONFIG,
     PROCESSED_DATA_DIR,

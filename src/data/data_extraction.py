@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from config.config import TWELVE_DATA_CONFIG, DATA_QUALITY_CONFIG, RAW_DATA_DIR
+from config import TWELVE_DATA_CONFIG, DATA_QUALITY_CONFIG, RAW_DATA_DIR
 from src.utils.logger import get_logger
 
 logger = get_logger("data_extraction")

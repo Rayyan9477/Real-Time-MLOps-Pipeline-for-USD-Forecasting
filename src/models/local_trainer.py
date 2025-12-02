@@ -18,7 +18,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config.config import PROCESSED_DATA_DIR, MODELS_DIR, MODEL_CONFIG
+from config import PROCESSED_DATA_DIR, MODELS_DIR, MODEL_CONFIG
 from src.utils.logger import get_logger
 
 logger = get_logger("local_training")

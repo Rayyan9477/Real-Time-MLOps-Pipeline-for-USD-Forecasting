@@ -4,6 +4,10 @@ on:
   push:
     branches: [master, main]
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -110,8 +114,9 @@ jobs:
 
     - name: Create release
       if: steps.docker_build.outcome == 'success'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         tag_name: v${{ steps.model_version.outputs.version }}
         name: Release v${{ steps.model_version.outputs.version }}
         body: |
@@ -127,3 +132,4 @@ jobs:
           ```
         draft: false
         prerelease: false
+      continue-on-error: true

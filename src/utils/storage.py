@@ -8,7 +8,7 @@ from minio.error import S3Error
 from pathlib import Path
 from datetime import datetime
 
-from config.config import MINIO_CONFIG
+from config import MINIO_CONFIG
 from src.utils.logger import get_logger
 
 logger = get_logger("storage")
