@@ -200,6 +200,32 @@ services:
     networks:
       - mlops-network
 
+  # FastAPI Prediction API
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./.env:/app/.env
+    depends_on:
+      - minio
+      - mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    networks:
+      - mlops-network
+
 volumes:
   postgres-db-volume:
   minio-data:

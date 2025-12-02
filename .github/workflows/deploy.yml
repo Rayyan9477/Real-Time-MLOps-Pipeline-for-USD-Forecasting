@@ -52,9 +52,13 @@ jobs:
         mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
         client = mlflow.tracking.MlflowClient()
         model_name = 'usd_volatility_predictor'
-        # Use search_model_versions instead of deprecated get_latest_versions
-        versions = client.search_model_versions(f\"name='{model_name}'\", order_by=['version_number DESC'], max_results=1)
-        print(versions[0].version if versions else 'latest')
+        try:
+            versions = client.search_model_versions(f\"name='{model_name}'\", order_by=['version_number DESC'], max_results=1)
+            version = versions[0].version if versions else 'latest'
+        except Exception as e:
+            print(f'Model registry not available or model not found: {e}')
+            version = 'latest'
+        print(version)
         ")
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Model version: $VERSION"
@@ -84,9 +88,13 @@ jobs:
         sleep 15
 
         # Health check
-        curl -f http://localhost:8000/health || exit 1
-
-        echo "✓ Deployment verification successful"
+        if curl -f http://localhost:8000/health; then
+          echo "✓ Deployment verification successful"
+        else
+          echo "✗ Health check failed"
+          docker logs test-container
+          exit 1
+        fi
 
         # Cleanup
         docker stop test-container
