@@ -5,16 +5,34 @@
 
 // Configuration
 const CONFIG = {
-    API_BASE_URL: window.location.origin,
+    API_BASE_URL: window.location.origin, // Use same origin as the page
     REFRESH_INTERVAL: 30000, // 30 seconds
     MAX_CHART_POINTS: 24,
     MAX_TABLE_ROWS: 10
 };
 
+console.log('Dashboard Config:', CONFIG);
+
 // Get GitHub Codespaces URLs
 function getCodespacesUrl(port) {
     const hostname = window.location.hostname;
-    if (hostname.includes('github.dev')) {
+    console.log('Current hostname:', hostname);
+    
+    if (hostname.includes('app.github.dev')) {
+        // Extract codespace name from app.github.dev format
+        // Format: cuddly-eureka-v4pjvxx7vwg24x9-8000.app.github.dev
+        const parts = hostname.split('-');
+        const portIndex = parts.findIndex(p => p.includes('.app.github.dev'));
+        if (portIndex > 0) {
+            const codespaceName = parts.slice(0, portIndex).join('-');
+            return `https://${codespaceName}-${port}.app.github.dev`;
+        }
+    } else if (hostname.includes('githubpreview.dev')) {
+        // Extract codespace name from githubpreview.dev format
+        const parts = hostname.split('-');
+        const codespaceName = parts.slice(0, -2).join('-');
+        return `https://${codespaceName}-${port}.githubpreview.dev`;
+    } else if (hostname.includes('github.dev')) {
         // Extract codespace name (everything before .github.dev)
         const codespaceName = hostname.split('.')[0];
         return `https://${codespaceName}-${port}.app.github.dev`;
@@ -105,16 +123,21 @@ function navigateToPage(page) {
 // ==================== API Functions ====================
 async function checkApiHealth() {
     try {
+        console.log('Checking API health at:', `${CONFIG.API_BASE_URL}/health`);
         const response = await fetch(`${CONFIG.API_BASE_URL}/health`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
         
+        console.log('Health check response status:', response.status);
+        
         if (response.ok) {
             const data = await response.json();
+            console.log('Health check data:', data);
             updateApiStatus(true, data);
             return data;
         } else {
+            console.error('Health check failed with status:', response.status);
             updateApiStatus(false);
             return null;
         }
@@ -152,11 +175,15 @@ function updateApiStatus(isOnline, data = null) {
 
 async function fetchStats() {
     try {
+        console.log('Fetching stats from:', `${CONFIG.API_BASE_URL}/api/stats`);
         const response = await fetch(`${CONFIG.API_BASE_URL}/api/stats`);
         if (response.ok) {
             state.stats = await response.json();
+            console.log('Stats fetched:', state.stats);
             updateDashboardFromStats();
             return state.stats;
+        } else {
+            console.error('Stats fetch failed:', response.status);
         }
     } catch (error) {
         console.error('Failed to fetch stats:', error);
@@ -686,18 +713,37 @@ function showSuccess(message) {
 // ==================== Initialize ====================
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 USD Volatility Dashboard Initialized');
+    console.log('API Base URL:', CONFIG.API_BASE_URL);
+    console.log('Window location:', window.location.href);
+    console.log('Service URLs:', SERVICE_URLS);
     
     // Initialize charts first
-    initVolatilityChart();
+    try {
+        initVolatilityChart();
+        console.log('✅ Charts initialized');
+    } catch (error) {
+        console.error('❌ Chart initialization error:', error);
+    }
     
     // Load all data
-    await refreshAllData();
+    try {
+        await refreshAllData();
+        console.log('✅ Initial data loaded successfully');
+        console.log('State:', state);
+    } catch (error) {
+        console.error('❌ Failed to load initial data:', error);
+        showError('Failed to load dashboard data. Check console for details.');
+    }
     
     // Update model status indicator
     if (state.modelLoaded) {
         showSuccess('Model loaded successfully!');
+        console.log('✅ Model is loaded');
+    } else {
+        console.warn('⚠️ Model not loaded yet');
     }
     
     // Periodic refresh
     setInterval(refreshAllData, CONFIG.REFRESH_INTERVAL);
+    console.log(`🔄 Auto-refresh enabled (every ${CONFIG.REFRESH_INTERVAL/1000}s)`);
 });

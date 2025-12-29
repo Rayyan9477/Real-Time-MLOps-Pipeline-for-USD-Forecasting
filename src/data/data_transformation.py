@@ -405,3 +405,52 @@ def generate_data_profile(df: pd.DataFrame, output_path: str = None) -> str:
     except ImportError:
         logger.warning("ydata-profiling not available. Skipping profile generation.")
         return None
+
+
+class DataTransformer:
+    """
+    Wrapper class for data transformation pipeline.
+    Provides a convenient interface for the transformation workflow.
+    """
+    
+    def __init__(self):
+        """Initialize the data transformer."""
+        self.feature_engineer = FeatureEngineer()
+        self.data_cleaner = DataCleaner()
+        logger.info("Initialized DataTransformer")
+    
+    def transform(self, input_data: str, save_processed: bool = True) -> pd.DataFrame:
+        """
+        Transform raw data through the complete pipeline.
+        
+        Args:
+            input_data: Path to raw CSV file or DataFrame
+            save_processed: Whether to save processed data
+            
+        Returns:
+            Transformed DataFrame
+        """
+        # Load data if path provided
+        if isinstance(input_data, str):
+            df = pd.read_csv(input_data, parse_dates=['datetime'])
+            logger.info(f"Loaded data from {input_data}")
+        else:
+            df = input_data
+        
+        # Run transformation pipeline
+        df_transformed = transform_data(df, save_processed=save_processed)
+        
+        return df_transformed
+    
+    def generate_profile(self, df: pd.DataFrame, output_path: str = None) -> str:
+        """
+        Generate data profile report.
+        
+        Args:
+            df: DataFrame to profile
+            output_path: Optional output path
+            
+        Returns:
+            Path to generated report
+        """
+        return generate_data_profile(df, output_path)

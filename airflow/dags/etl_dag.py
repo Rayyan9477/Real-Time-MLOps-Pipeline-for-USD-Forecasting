@@ -1,6 +1,6 @@
 """
 ETL DAG for USD Volatility Prediction Pipeline.
-Runs daily to extract, transform, load, and version forex data.
+Runs every 2 hours to extract, transform, load, and version forex data.
 """
 from datetime import datetime, timedelta
 from airflow import DAG
@@ -30,11 +30,12 @@ logger = get_logger("etl_dag") if IMPORTS_SUCCESSFUL else None
 default_args = {
     'owner': 'mlops_team',
     'depends_on_past': False,
-    'start_date': datetime(2025, 11, 26),
+    'start_date': datetime(2025, 12, 29),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 2,
-    'retry_delay': timedelta(minutes=5),
+    'retries': 3,
+    'retry_delay': timedelta(minutes=10),
+    'execution_timeout': timedelta(minutes=30),
 }
 
 
@@ -266,15 +267,16 @@ def log_mlflow_artifacts_task(**context):
         logger.warning("Continuing despite MLflow logging failure")
         return "mlflow_logging_failed"
 
-
 # Define the DAG
 with DAG(
     dag_id='usd_volatility_etl_pipeline',
     default_args=default_args,
-    description='ETL pipeline for USD volatility prediction',
-    schedule='0 0 * * *',  # Daily at midnight
+    description='ETL pipeline for USD volatility prediction - Runs every 2 hours',
+    schedule='0 */2 * * *',  # Every 2 hours
     catchup=False,
-    tags=['etl', 'forex', 'mlops'],
+    max_active_runs=1,
+    tags=['etl', 'forex', 'mlops', 'production'],
+) as dag:['etl', 'forex', 'mlops'],
 ) as dag:
     
     # Task 1: Extract data

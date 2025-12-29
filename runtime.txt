@@ -1,0 +1,23 @@
+# Runtime Configuration
+runtime = "python3.10"
+
+[build]
+  environment = { PYTHON_VERSION = "3.10" }
+
+[env]
+  TWELVE_DATA_API_KEY = ""
+  API_PORT = "8000"
+  ENVIRONMENT = "production"
+
+[experimental]
+  allowed_missing_in_requirements = ["torch", "tensorflow"]
+
+[[redirects]]
+  from = "/docs"
+  to = "/docs"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/:splat"
+  status = 200

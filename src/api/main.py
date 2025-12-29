@@ -204,21 +204,27 @@ def load_local_model():
     try:
         logger.info("Loading model from local storage...")
 
-        # Try to load latest model
-        latest_model_path = MODELS_DIR / "latest_model.pkl"
-        latest_metadata_path = MODELS_DIR / "latest_metadata.json"
-
-        if not latest_model_path.exists():
-            # Fallback to finding any model
-            model_files = sorted(MODELS_DIR.glob("xgboost_model_*.pkl"))
-            if model_files:
-                latest_model_path = model_files[-1]
-                # Try to find matching metadata
-                timestamp = latest_model_path.stem.replace("xgboost_model_", "")
-                latest_metadata_path = MODELS_DIR / f"model_metadata_{timestamp}.json"
+        # Try to load XGBoost model (more reliable)
+        xgboost_files = sorted(MODELS_DIR.glob("xgboost_model_*.pkl"))
+        if xgboost_files:
+            latest_model_path = xgboost_files[-1]
+            timestamp = latest_model_path.stem.replace("xgboost_model_", "")
+            latest_metadata_path = MODELS_DIR / f"model_metadata_{timestamp}.json"
+        else:
+            # Fallback to simple_api model
+            simple_api_files = sorted(MODELS_DIR.glob("simple_api_model_*.pkl"))
+            if simple_api_files:
+                latest_model_path = simple_api_files[-1]
+                timestamp = latest_model_path.stem.replace("simple_api_model_", "")
+                latest_metadata_path = MODELS_DIR / f"simple_api_metadata_{timestamp}.json"
             else:
-                logger.error("No model files found in models directory")
-                return False
+                # Fallback to latest model
+                latest_model_path = MODELS_DIR / "latest_model.pkl"
+                latest_metadata_path = MODELS_DIR / "latest_metadata.json"
+
+                if not latest_model_path.exists():
+                    logger.error("No model files found in models directory")
+                    return False
 
         # Load model
         with open(latest_model_path, "rb") as f:

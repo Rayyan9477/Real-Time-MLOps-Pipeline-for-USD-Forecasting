@@ -1,0 +1,280 @@
+#!/usr/bin/env python3
+"""
+Final System Health Check
+Comprehensive validation before production deployment
+"""
+
+import sys
+import json
+from pathlib import Path
+from datetime import datetime
+
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+BOLD = '\033[1m'
+RESET = '\033[0m'
+
+
+class HealthChecker:
+    """System health checker."""
+    
+    def __init__(self):
+        self.passed = 0
+        self.failed = 0
+        self.warnings = 0
+        self.root = Path('/workspaces/Real-Time-MLOps-Pipeline-for-USD-Forecasting')
+    
+    def check(self, condition, message, level='error'):
+        """Check a condition and print result."""
+        if condition:
+            print(f"  {GREEN}✓{RESET} {message}")
+            self.passed += 1
+            return True
+        else:
+            if level == 'warning':
+                print(f"  {YELLOW}⚠{RESET} {message}")
+                self.warnings += 1
+            else:
+                print(f"  {RED}✗{RESET} {message}")
+                self.failed += 1
+            return False
+    
+    def section(self, title):
+        """Print section header."""
+        print(f"\n{BOLD}{BLUE}{title}{RESET}")
+        print(f"{BLUE}{'─' * 70}{RESET}")
+
+
+def main():
+    """Run health checks."""
+    checker = HealthChecker()
+    
+    print(f"\n{BOLD}{BLUE}{'═' * 70}{RESET}")
+    print(f"{BOLD}{BLUE}Production Health Check{RESET}")
+    print(f"{BOLD}{BLUE}Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RESET}")
+    print(f"{BOLD}{BLUE}{'═' * 70}{RESET}")
+    
+    # 1. File Structure
+    checker.section("1️⃣  File Structure")
+    
+    critical_files = {
+        'API': [
+            'src/api/main.py',
+            'src/api/__init__.py',
+            'src/api/routes/__init__.py'
+        ],
+        'Models': [
+            'src/models/production_trainer.py',
+            'src/models/mlflow_registry.py',
+            'models/latest_model.pkl',
+            'models/scaler.pkl',
+            'models/latest_metadata.json'
+        ],
+        'Data Pipeline': [
+            'src/data/data_extraction.py',
+            'src/data/data_transformation.py'
+        ],
+        'Configuration': [
+            'config/config.py',
+            'requirements.txt',
+            'runtime.txt'
+        ],
+        'CI/CD': [
+            '.github/workflows/data-pipeline.yml',
+            '.github/workflows/ci-cd.yml'
+        ],
+        'Orchestration': [
+            'airflow/dags/etl_dag.py'
+        ],
+        'Deployment': [
+            'Dockerfile',
+            'docker-compose.yml',
+            'railway.json',
+            'render.yaml',
+            'vercel.json'
+        ],
+        'Documentation': [
+            'README.md',
+            'DEPLOYMENT_SUMMARY.md',
+            'docs/GITHUB_SECRETS_SETUP.md',
+            'docs/PRODUCTION_DEPLOYMENT.md'
+        ]
+    }
+    
+    for category, files in critical_files.items():
+        all_exist = all((checker.root / f).exists() for f in files)
+        checker.check(all_exist, f"{category} files present", level='error')
+    
+    # 2. Security
+    checker.section("2️⃣  Security")
+    
+    # Check .gitignore
+    gitignore = checker.root / '.gitignore'
+    if gitignore.exists():
+        content = gitignore.read_text()
+        checker.check('.env' in content, '.env files in .gitignore')
+        checker.check('*.env' in content or '.env*' in content, '.env* pattern in .gitignore')
+        checker.check('*.key' in content or '*.pem' in content, 'Key files in .gitignore', level='warning')
+    
+    # Check for .env files
+    env_files = list(checker.root.glob('**/.env'))
+    env_files = [f for f in env_files if '.env.example' not in str(f)]
+    checker.check(len(env_files) == 0, f'No .env files in repository (found {len(env_files)})')
+    
+    # Check for hardcoded secrets (exclude patterns in examples and documentation)
+    secret_patterns = ['sk-proj', 'ghp_', 'gho_', '= "test_api_key"', '= \'test_api_key\'']
+    found_secrets = False
+    for pattern in secret_patterns:
+        py_files = list(checker.root.glob('**/*.py'))
+        for py_file in py_files:
+            # Skip virtual environments, tests, and health check script itself
+            if any(x in str(py_file) for x in ['venv', 'site-packages', 'test_', 'health_check.py']):
+                continue
+            try:
+                content = py_file.read_text()
+                if pattern in content and 'example' not in content.lower():
+                    found_secrets = True
+                    break
+            except:
+                pass
+        if found_secrets:
+            break
+    
+    checker.check(not found_secrets, 'No hardcoded secrets in code')
+    
+    # 3. Model Quality
+    checker.section("3️⃣  Model Quality")
+    
+    metadata_file = checker.root / 'models/latest_metadata.json'
+    if metadata_file.exists():
+        try:
+            with open(metadata_file) as f:
+                metadata = json.load(f)
+            
+            metrics = metadata.get('metrics', {})
+            test_mape = metrics.get('test_mape', 100)
+            test_rmse = metrics.get('test_rmse', 1.0)
+            features_count = len(metadata.get('features', []))
+            
+            checker.check(test_mape < 20, f'Test MAPE < 20% ({test_mape:.2f}%)')
+            checker.check(test_rmse < 0.001, f'Test RMSE < 0.001 ({test_rmse:.6f})')
+            checker.check(features_count >= 20, f'Features count >= 20 ({features_count})')
+            checker.check('model_type' in metadata, 'Model type documented')
+            checker.check('trained_at' in metadata or 'timestamp' in metadata, 'Training timestamp present')
+        except Exception as e:
+            checker.check(False, f'Model metadata valid: {str(e)}')
+    else:
+        checker.check(False, 'Model metadata file exists')
+    
+    # 4. Automation
+    checker.section("4️⃣  Automation")
+    
+    # GitHub Actions
+    workflow_file = checker.root / '.github/workflows/data-pipeline.yml'
+    if workflow_file.exists():
+        content = workflow_file.read_text()
+        checker.check('0 */2 * * *' in content, '2-hour cron schedule configured')
+        checker.check('workflow_dispatch' in content, 'Manual trigger enabled')
+        checker.check('secrets.TWELVE_DATA_API_KEY' in content, 'GitHub Secrets used')
+        checker.check('extract' in content.lower(), 'Extract step present')
+        checker.check('transform' in content.lower(), 'Transform step present')
+        checker.check('train' in content.lower() or 'model' in content.lower(), 'Training step present')
+    
+    # Airflow
+    dag_file = checker.root / 'airflow/dags/etl_dag.py'
+    if dag_file.exists():
+        content = dag_file.read_text()
+        checker.check('0 */2 * * *' in content, 'Airflow 2-hour schedule configured')
+        checker.check('@dag' in content or 'DAG(' in content, 'DAG decorator present')
+    
+    # 5. API
+    checker.section("5️⃣  API")
+    
+    api_main = checker.root / 'src/api/main.py'
+    if api_main.exists():
+        content = api_main.read_text()
+        checker.check('FastAPI' in content, 'FastAPI app present')
+        checker.check('/health' in content, 'Health endpoint defined')
+        checker.check('/predict' in content, 'Predict endpoint defined')
+        checker.check('/metrics' in content, 'Metrics endpoint defined')
+        checker.check('prometheus' in content.lower(), 'Prometheus integration')
+    
+    # 6. Testing
+    checker.section("6️⃣  Testing")
+    
+    test_files = [
+        'tests/unit/test_extraction.py',
+        'tests/unit/test_transformation.py',
+        'tests/integration/test_pipeline.py',
+        'scripts/validate_system.py'
+    ]
+    
+    for test_file in test_files:
+        checker.check((checker.root / test_file).exists(), f'{test_file} exists')
+    
+    # 7. Documentation
+    checker.section("7️⃣  Documentation")
+    
+    readme = checker.root / 'README.md'
+    if readme.exists():
+        content = readme.read_text()
+        checker.check(len(content) > 1000, 'README comprehensive (>1000 chars)')
+        checker.check('installation' in content.lower() or 'setup' in content.lower(), 'Setup instructions present')
+        checker.check('api' in content.lower() or 'endpoint' in content.lower(), 'API documentation present')
+    
+    docs_dir = checker.root / 'docs'
+    required_docs = [
+        'GITHUB_SECRETS_SETUP.md',
+        'PRODUCTION_DEPLOYMENT.md'
+    ]
+    for doc in required_docs:
+        checker.check((docs_dir / doc).exists(), f'{doc} present')
+    
+    # 8. Deployment
+    checker.section("8️⃣  Deployment Configuration")
+    
+    dockerfile = checker.root / 'Dockerfile'
+    if dockerfile.exists():
+        content = dockerfile.read_text()
+        checker.check('FROM python' in content, 'Dockerfile uses Python base image')
+        checker.check('COPY requirements.txt' in content or 'COPY . .' in content, 'Dockerfile copies requirements')
+        checker.check('CMD' in content or 'ENTRYPOINT' in content, 'Dockerfile has entry point')
+    
+    # Check requirements
+    requirements = checker.root / 'requirements.txt'
+    if requirements.exists():
+        content = requirements.read_text()
+        required_packages = ['fastapi', 'xgboost', 'scikit-learn', 'pandas', 'numpy']
+        for package in required_packages:
+            checker.check(package in content.lower(), f'{package} in requirements.txt')
+    
+    # Summary
+    print(f"\n{BOLD}{BLUE}{'═' * 70}{RESET}")
+    print(f"{BOLD}Summary{RESET}")
+    print(f"{BOLD}{BLUE}{'═' * 70}{RESET}")
+    
+    total = checker.passed + checker.failed + checker.warnings
+    
+    print(f"\n  {GREEN}✓{RESET} Passed:   {checker.passed}/{total}")
+    print(f"  {RED}✗{RESET} Failed:   {checker.failed}/{total}")
+    print(f"  {YELLOW}⚠{RESET} Warnings: {checker.warnings}/{total}")
+    
+    percentage = (checker.passed / total * 100) if total > 0 else 0
+    
+    print(f"\n  {BOLD}Health Score: {percentage:.1f}%{RESET}")
+    
+    if checker.failed == 0:
+        print(f"\n{GREEN}{BOLD}✅ SYSTEM HEALTHY - READY FOR PRODUCTION{RESET}")
+        return 0
+    elif checker.failed <= 3:
+        print(f"\n{YELLOW}{BOLD}⚠ MINOR ISSUES DETECTED - REVIEW BEFORE PRODUCTION{RESET}")
+        return 1
+    else:
+        print(f"\n{RED}{BOLD}❌ CRITICAL ISSUES DETECTED - FIX BEFORE PRODUCTION{RESET}")
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

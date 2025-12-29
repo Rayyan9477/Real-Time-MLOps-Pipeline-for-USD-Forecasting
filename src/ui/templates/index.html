@@ -116,6 +116,15 @@
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-darker z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-xl text-cyan-400">Loading Dashboard...</p>
+            <p class="text-sm text-slate-400 mt-2" id="loading-status">Initializing...</p>
+        </div>
+    </div>
+    
     <!-- Navigation -->
     <nav class="fixed top-0 left-0 right-0 z-50 bg-darker/80 backdrop-blur-lg border-b border-slate-700/50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -782,6 +791,39 @@
                 });
             });
         });
+    </script>
+    
+    <!-- Hide loading screen after page loads -->
+    <script>
+        window.addEventListener('load', function() {
+            const loadingScreen = document.getElementById('loading-screen');
+            const loadingStatus = document.getElementById('loading-status');
+            
+            if (loadingStatus) {
+                loadingStatus.textContent = 'Dashboard loaded!';
+            }
+            
+            setTimeout(function() {
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    loadingScreen.style.transition = 'opacity 0.5s';
+                    setTimeout(function() {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }
+            }, 1000);
+        });
+        
+        // Show error if loading takes too long
+        setTimeout(function() {
+            const loadingScreen = document.getElementById('loading-screen');
+            const loadingStatus = document.getElementById('loading-status');
+            if (loadingScreen && loadingScreen.style.display !== 'none') {
+                if (loadingStatus) {
+                    loadingStatus.innerHTML = '<span class="text-red-400">⚠️ Loading taking longer than expected.<br/>Check browser console (F12) for errors.</span>';
+                }
+            }
+        }, 5000);
     </script>
 </body>
 </html>

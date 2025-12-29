@@ -1,0 +1,44 @@
+services:
+  # API Service
+  - type: web
+    name: usd-volatility-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      - key: MLFLOW_TRACKING_URI
+        sync: false
+      - key: API_PORT
+        value: 8000
+      - key: API_HOST
+        value: 0.0.0.0
+    healthCheckPath: /health
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 80
+      targetCPUPercent: 70
+
+  # Airflow Scheduler (Optional - for cron jobs)
+  - type: worker
+    name: airflow-scheduler
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: airflow scheduler
+    envVars:
+      - key: AIRFLOW__CORE__EXECUTOR
+        value: LocalExecutor
+      - key: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+        fromDatabase:
+          name: airflow-db
+          property: connectionString
+
+databases:
+  - name: airflow-db
+    databaseName: airflow
+    user: airflow
+    plan: starter

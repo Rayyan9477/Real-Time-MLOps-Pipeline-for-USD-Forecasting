@@ -37,10 +37,16 @@ ENV/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Environment variables
+# Environment variables - All .env files for security
 .env
+.env*
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
+*.key
+*.pem
 
 # Airflow
 airflow/logs/

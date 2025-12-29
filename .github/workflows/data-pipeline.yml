@@ -1,0 +1,122 @@
+name: Data Pipeline - Scheduled Updates
+
+on:
+  schedule:
+    # Run every 2 hours
+    - cron: '0 */2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  fetch-and-train:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Configure environment variables
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          echo "Environment configured with secrets"
+      
+      - name: Extract data from API
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+        run: |
+          python -c "
+          from src.data.data_extraction import TwelveDataClient
+          from src.utils.logger import get_logger
+          import pandas as pd
+          from datetime import datetime
+          from pathlib import Path
+          
+          logger = get_logger('data_extraction_job')
+          logger.info('Starting data extraction...')
+          
+          client = TwelveDataClient()
+          data = client.fetch_time_series()
+          df = client.to_dataframe(data)
+          
+          timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+          filename = f'raw_data_{timestamp}.csv'
+          filepath = Path('data/raw') / filename
+          df.to_csv(filepath, index=False)
+          
+          logger.info(f'Data extracted and saved to {filepath}')
+          print(f'✓ Extracted {len(df)} records')
+          "
+      
+      - name: Transform data
+        run: |
+          python -c "
+          from src.data.data_transformation import DataTransformer
+          from src.utils.logger import get_logger
+          from pathlib import Path
+          
+          logger = get_logger('data_transformation_job')
+          logger.info('Starting data transformation...')
+          
+          transformer = DataTransformer()
+          processed_files = sorted(Path('data/raw').glob('raw_data_*.csv'))
+          
+          if processed_files:
+              df_processed = transformer.transform(str(processed_files[-1]))
+              logger.info('Data transformation completed')
+              print(f'✓ Transformed data with {df_processed.shape[1]} features')
+          else:
+              raise FileNotFoundError('No raw data files found')
+          "
+      
+      - name: Train model
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+        run: |
+          python src/models/production_trainer.py
+      
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/ models/
+          git diff --staged --quiet || git commit -m "chore: automated data update and model training [skip ci]"
+          git push
+        continue-on-error: true
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: model-artifacts
+          path: |
+            models/latest_model.pkl
+            models/latest_metadata.json
+            models/scaler.pkl
+          retention-days: 30
+      
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "Pipeline failed! Check the logs for details."
+          # Add Slack/email notification here if needed

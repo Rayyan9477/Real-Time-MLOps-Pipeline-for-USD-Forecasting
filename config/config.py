@@ -1,14 +1,14 @@
 """
 Configuration management for the MLOps pipeline.
-Loads environment variables and provides centralized configuration.
+All configurations are loaded from environment variables (GitHub Secrets in production).
+No .env files required - all secrets should be set in GitHub repository settings.
 """
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Note: In production, all environment variables are set via GitHub Secrets
+# For local development, you can set them in your shell or use .env.local (gitignored)
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -23,14 +23,19 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 for directory in [RAW_DATA_DIR, PROCESSED_DATA_DIR, MODELS_DIR, REPORTS_DIR, LOGS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
-# Twelve Data API Configuration
+# Twelve Data API Configuration (set via GitHub Secrets)
 TWELVE_DATA_CONFIG = {
-    "api_key": os.getenv("TWELVE_DATA_API_KEY", ""),
+    "api_key": os.getenv("TWELVE_DATA_API_KEY"),  # Required: Set in GitHub Secrets
     "base_url": os.getenv("TWELVE_DATA_BASE_URL", "https://api.twelvedata.com"),
     "symbol": os.getenv("FOREX_SYMBOL", "EUR/USD"),
     "interval": os.getenv("DATA_INTERVAL", "1h"),
     "fetch_size": int(os.getenv("FETCH_SIZE", "168")),
 }
+
+# Validate required API key
+if not TWELVE_DATA_CONFIG["api_key"]:
+    import warnings
+    warnings.warn("TWELVE_DATA_API_KEY not set. Please configure in GitHub Secrets.")
 
 # MinIO Configuration
 MINIO_CONFIG = {

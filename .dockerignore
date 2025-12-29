@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+!.env.example
+
+# Data (excluded from Docker image)
+data/raw/*.csv
+data/processed/*.parquet
+data/mlruns/
+data/mlflow_artifacts/
+
+# Models (excluded, will be fetched at runtime)
+models/*.pkl
+models/*.joblib
+
+# Logs
+logs/
+*.log
+airflow/logs/
+
+# Documentation
+docs/
+README.md
+*.md
+!requirements.txt
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# Deployment configs (not needed in image)
+docker-compose.yml
+Dockerfile
+vercel.json
+railway.json
+render.yaml
+Procfile
+
+# DVC
+.dvc/
+
+# Temporary
+*.tmp
+.temporary/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db

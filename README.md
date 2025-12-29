@@ -1,24 +1,30 @@
-# USD Volatility Prediction - Real-Time MLOps Pipeline
+# 🔮 USD Volatility Prediction - Real-Time MLOps Pipeline
 
-A production-grade MLOps pipeline for real-time USD volatility forecasting using EUR/USD forex data. This project demonstrates end-to-end ML lifecycle management with automated data ingestion, model training, deployment, and monitoring.
+> A production-ready MLOps pipeline for real-time USD volatility forecasting using EUR/USD forex data with automated updates every 2 hours.
 
-[![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Deploy](https://img.shields.io/badge/Deploy-Vercel%20%7C%20Railway%20%7C%20Render-blueviolet.svg)](docs/DEPLOYMENT_GUIDE.md)
 
 ## 🎯 Project Overview
 
 ### Problem Statement
-Predict next-hour USD volatility using EUR/USD forex pair data with hourly granularity. The system automatically adapts to concept drift (market regime changes) through continuous monitoring and retraining.
+Predict next-hour USD volatility using EUR/USD forex pair data with hourly granularity. The system automatically updates **every 2 hours** and adapts to market regime changes through continuous monitoring and retraining.
 
-### Key Features
-- ✅ **Automated Data Pipeline**: Airflow DAG for ETL with quality gates
-- ✅ **Feature Engineering**: Lag features, rolling statistics, time encodings
-- ✅ **Experiment Tracking**: MLflow integration with PostgreSQL + MinIO
-- ✅ **Data Versioning**: DVC with Google Drive remote storage
-- ✅ **CI/CD Pipeline**: GitHub Actions with CML for model comparison
-- ✅ **Model Serving**: FastAPI REST API with Prometheus metrics
-- ✅ **Monitoring**: Grafana dashboards with drift detection and alerts
-- ✅ **Containerization**: Docker deployment ready for production
+### ✨ Key Features
+- 🔄 **Auto-Update Every 2 Hours**: Scheduled cron jobs fetch latest market data
+- 🚀 **Production-Ready**: Deployable to Vercel, Railway, Render, or any cloud platform
+- 📊 **Real-Time Data**: Live forex data from Twelve Data API
+- 🤖 **Automated ML Pipeline**: Airflow DAG for ETL with quality gates
+- 🎯 **Advanced Features**: Lag features, rolling statistics, time encodings
+- 📈 **Experiment Tracking**: MLflow integration with artifact storage
+- 🔄 **Data Versioning**: DVC with remote storage support
+- 🌐 **REST API**: FastAPI with automatic OpenAPI documentation
+- 📊 **Monitoring**: Prometheus metrics + Grafana dashboards
+- 🐳 **Containerized**: Docker-ready for easy deployment
+- 🔍 **Drift Detection**: Automatic model performance monitoring
 
 ## 🏗️ Architecture
 
@@ -137,22 +143,25 @@ dvc remote modify gdrive gdrive_use_service_account false
 
 For detailed DVC setup with Google Drive, see **[DVC_SETUP.md](DVC_SETUP.md)**.
 
-### 5. Start Infrastructure
+### 5. Start Infrastructure (Local Development)
 ```bash
-# Start Airflow, MinIO, Prometheus, Grafana
+# Start all services with Docker Compose
 docker-compose up -d
 
-# Check services
+# Check service health
 docker-compose ps
+
+# View logs
+docker-compose logs -f
 ```
 
 **Access Services:**
-- Airflow UI: http://localhost:8080 (airflow/airflow)
-- MLflow UI: http://localhost:5000 (no auth)
-- MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
-- Prometheus: http://localhost:9090 (no auth)
-- Grafana: http://localhost:3000 (admin/admin)
-- FastAPI Docs: http://localhost:8000/docs (no auth)
+- 🌐 **FastAPI Docs**: http://localhost:8000/docs
+- 🔄 **Airflow UI**: http://localhost:8080 (airflow/airflow)
+- 📊 **MLflow UI**: http://localhost:5000
+- 📦 **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
+- 📈 **Prometheus**: http://localhost:9090
+- 📉 **Grafana**: http://localhost:3000 (admin/admin)
 
 **📊 View Dashboards:**
 - **Airflow**: Monitor ETL pipeline execution and DAG status
@@ -337,17 +346,64 @@ pytest tests/integration/ -v
 
 *Note: Performance varies based on market conditions and training data.*
 
+## 🚀 Production Deployment
+
+### Quick Deploy Options
+
+#### Deploy to Vercel (Recommended for API)
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
+#### Deploy to Railway
+```bash
+npm i -g @railway/cli
+railway login
+railway init
+railway up
+```
+
+#### Deploy to Render
+1. Connect GitHub repository at [render.com](https://render.com)
+2. Configure service with `render.yaml`
+3. Add environment variables
+4. Deploy automatically
+
+### Complete Deployment Guide
+📖 **See [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)** for detailed instructions on:
+- Platform-specific setup
+- Environment configuration
+- Cron job scheduling (every 2 hours)
+- Monitoring setup
+- Security best practices
+- Troubleshooting
+
+### Auto-Update Schedule
+The system updates data **every 2 hours** using cron:
+```bash
+# Schedule: 0 */2 * * * (runs at 00:00, 02:00, 04:00, ..., 22:00 UTC)
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request to `dev` branch
+5. Open Pull Request
 
 ## 📝 License
 
 This project is licensed under the MIT License - see LICENSE file for details.
+
+## 📚 Documentation
+
+- 📖 [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Production deployment instructions
+- 📊 [Dashboard Guide](docs/DASHBOARD_ACCESS_GUIDE.md) - Monitoring setup
+- 🔄 [DVC Setup](docs/DVC_SETUP.md) - Data versioning configuration
+- 📋 [Project Plan](docs/Project.md) - Detailed project documentation
 
 ## 🙏 Acknowledgments
 
@@ -355,6 +411,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 - [Dagshub](https://dagshub.com/) for MLOps platform
 - [Apache Airflow](https://airflow.apache.org/) for orchestration
 - [MLflow](https://mlflow.org/) for experiment tracking
+- [FastAPI](https://fastapi.tiangolo.com/) for web framework
 
 ## 📧 Contact
 
@@ -362,6 +419,12 @@ This project is licensed under the MIT License - see LICENSE file for details.
 
 **Project Link**: https://github.com/Rayyan9477/Real-Time-MLOps-Pipeline-for-USD-Forecasting
 
+## ⭐ Star History
+
+If you find this project useful, please consider giving it a star!
+
 ---
+
+**Made with ❤️ for the MLOps community**
 
 **⭐ Star this repo if you find it helpful!**
