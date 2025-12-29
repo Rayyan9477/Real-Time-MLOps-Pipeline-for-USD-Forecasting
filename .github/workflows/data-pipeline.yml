@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 env:
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.10'
 
 jobs:
   fetch-and-train:
@@ -29,6 +29,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Ensure required directories exist
+        run: |
+          mkdir -p data/raw data/processed models
       
       - name: Configure environment variables
         env:
@@ -47,22 +51,17 @@ jobs:
           python -c "
           from src.data.data_extraction import TwelveDataClient
           from src.utils.logger import get_logger
-          import pandas as pd
           from datetime import datetime
-          from pathlib import Path
           
           logger = get_logger('data_extraction_job')
           logger.info('Starting data extraction...')
           
           client = TwelveDataClient()
-          data = client.fetch_time_series()
-          df = client.to_dataframe(data)
-          
+          df = client.fetch_to_dataframe()
+
           timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-          filename = f'raw_data_{timestamp}.csv'
-          filepath = Path('data/raw') / filename
-          df.to_csv(filepath, index=False)
-          
+          filepath = client.save_raw_data(df, timestamp=timestamp)
+
           logger.info(f'Data extracted and saved to {filepath}')
           print(f'✓ Extracted {len(df)} records')
           "

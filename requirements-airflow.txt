@@ -1,0 +1,4 @@
+# Optional dependencies for running Airflow locally.
+# Note: Airflow often requires constraints for reliable installs:
+# https://airflow.apache.org/docs/apache-airflow/stable/installation/installing-from-pypi.html
+apache-airflow>=2.8.0

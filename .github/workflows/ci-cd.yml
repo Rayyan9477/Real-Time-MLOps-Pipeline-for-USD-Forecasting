@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  PYTHON_VERSION: '3.11'
+  PYTHON_VERSION: '3.10'
 
 jobs:
   test:
@@ -45,7 +45,7 @@ jobs:
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
         continue-on-error: true

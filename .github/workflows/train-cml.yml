@@ -39,11 +39,18 @@ jobs:
       uses: iterative/setup-dvc@v1
 
     - name: Configure DVC for DagsHub
+      env:
+        DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+        DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
       run: |
-        dvc remote add -d dagshub https://dagshub.com/${{ env.DAGSHUB_USERNAME }}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc
+        if dvc remote list | awk '{print $1}' | grep -qx 'dagshub'; then
+          echo "DVC remote 'dagshub' already exists; updating auth"
+        else
+          dvc remote add -d dagshub "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
+        fi
         dvc remote modify dagshub --local auth basic
-        dvc remote modify dagshub --local user ${{ env.DAGSHUB_USERNAME }}
-        dvc remote modify dagshub --local password ${{ env.DAGSHUB_TOKEN }}
+        dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
+        dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
 
     - name: Pull latest data with DVC
       continue-on-error: true
