@@ -254,7 +254,7 @@ class DeploymentValidator:
                 self.check(
                     "API Health Endpoint",
                     False,
-                    f"{YELLOW}API not running at {health_url} (start with: uvicorn src.api.main:app){RESET}"
+                    f"{YELLOW}API not running at {health_url} (start with: python -m uvicorn src.api.main:app){RESET}"
                 )
                 return False
             self.check(

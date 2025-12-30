@@ -32,6 +32,9 @@ from collections import deque
 import threading
 
 from config import MODELS_DIR, DATA_DIR, MONITORING_CONFIG
+
+import os
+import subprocess
 from src.utils.logger import get_logger
 
 # Initialize logger
@@ -223,8 +226,18 @@ def load_local_model():
                 latest_metadata_path = MODELS_DIR / "latest_metadata.json"
 
                 if not latest_model_path.exists():
-                    logger.error("No model files found in models directory")
-                    return False
+                    # If the repo uses DVC pointers, allow an opt-in pull on startup.
+                    dvc_pointer = MODELS_DIR / "latest_model.pkl.dvc"
+                    if dvc_pointer.exists() and os.getenv("DVC_PULL_ON_STARTUP", "").lower() in {"1", "true", "yes"}:
+                        logger.warning("Model missing but DVC pointer found; attempting 'dvc pull' (DVC_PULL_ON_STARTUP enabled)")
+                        try:
+                            subprocess.run(["dvc", "pull", str(dvc_pointer)], check=True)
+                        except Exception as e:
+                            logger.error(f"DVC pull failed: {e}")
+
+                    if not latest_model_path.exists():
+                        logger.error("No model files found in models directory")
+                        return False
 
         # Load model
         with open(latest_model_path, "rb") as f:

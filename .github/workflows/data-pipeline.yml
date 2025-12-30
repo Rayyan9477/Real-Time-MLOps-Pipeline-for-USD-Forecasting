@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -40,9 +40,20 @@ jobs:
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
           MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
           echo "Environment configured with secrets"
+
+      - name: Configure DVC remote auth (Dagshub)
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          dvc remote list | awk '{print $1}' | grep -qx 'dagshub'
+          dvc remote modify dagshub --local auth basic
+          dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
+          dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
       
       - name: Extract data from API
         env:
@@ -94,6 +105,27 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
         run: |
           python src/models/production_trainer.py
+
+      - name: Version artifacts with DVC
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          set -e
+          latest_processed=$(ls -1t data/processed/processed_data_*.parquet 2>/dev/null | head -n 1 || true)
+          if [ -z "$latest_processed" ]; then
+            echo "No processed parquet found to version" >&2
+            exit 1
+          fi
+
+          # Add artifacts to DVC (binaries stay out of git; .dvc pointers are committed)
+          dvc add "$latest_processed"
+          dvc add models/latest_model.pkl
+          dvc add models/scaler.pkl
+          dvc add models/latest_metadata.json
+
+          # Push artifacts to remote
+          dvc push
       
       - name: Commit and push changes
         run: |
@@ -105,7 +137,7 @@ jobs:
         continue-on-error: true
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: model-artifacts
           path: |

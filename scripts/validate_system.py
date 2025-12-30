@@ -58,7 +58,7 @@ def test_api_prediction():
             return False
     except Exception as e:
         print(f"{YELLOW}⚠{RESET} API not running: {e}")
-        print(f"{YELLOW}   Start API with: uvicorn src.api.main:app --host 0.0.0.0 --port 8000{RESET}")
+        print(f"{YELLOW}   Start API with: python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000{RESET}")
         return False if strict else True
     
     # 2. Get model info

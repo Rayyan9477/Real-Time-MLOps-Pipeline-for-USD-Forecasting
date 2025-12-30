@@ -276,7 +276,6 @@ with DAG(
     catchup=False,
     max_active_runs=1,
     tags=['etl', 'forex', 'mlops', 'production'],
-) as dag:['etl', 'forex', 'mlops'],
 ) as dag:
     
     # Task 1: Extract data
