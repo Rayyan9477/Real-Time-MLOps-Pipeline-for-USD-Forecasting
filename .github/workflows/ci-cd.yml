@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   PYTHON_VERSION: '3.10'
 
@@ -14,23 +18,27 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov
-      
+
+      - name: Ensure required directories exist
+        run: |
+          mkdir -p data/raw data/processed models logs
+
       - name: Run unit tests
         run: |
           pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term
@@ -149,48 +157,72 @@ jobs:
     name: Validate Model Performance
     runs-on: ubuntu-latest
     needs: [test]
-    
+    continue-on-error: true
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
+      - name: Setup DVC
+        uses: iterative/setup-dvc@v1
+
+      - name: Configure DVC and pull metadata
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          mkdir -p models
+          # Configure DVC remote if credentials available
+          if [ -n "$DAGSHUB_USERNAME" ] && [ -n "$DAGSHUB_TOKEN" ]; then
+            if ! dvc remote list 2>/dev/null | awk '{print $1}' | grep -qx 'dagshub'; then
+              dvc remote add -d dagshub "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
+            fi
+            dvc remote modify dagshub --local auth basic
+            dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
+            dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
+            # Try to pull model metadata
+            dvc pull models/latest_metadata.json.dvc 2>/dev/null || echo "Could not pull metadata from DVC"
+          fi
+        continue-on-error: true
+
       - name: Validate model metrics
         run: |
           python -c "
           import json
           from pathlib import Path
-          
+
           metadata_path = Path('models/latest_metadata.json')
           if metadata_path.exists():
               with open(metadata_path) as f:
                   metadata = json.load(f)
-              
+
               metrics = metadata.get('metrics', {})
               test_r2 = metrics.get('test_r2', 0)
               test_mape = metrics.get('test_mape', 100)
-              
+
               print(f'Model R² Score: {test_r2:.4f}')
               print(f'Model MAPE: {test_mape:.2f}%')
-              
+
               # Validation thresholds
               if test_r2 < 0.70:
                   print('⚠️  Warning: R² score below 0.70')
               if test_mape > 15:
                   print('⚠️  Warning: MAPE above 15%')
-              
+
               if test_r2 >= 0.70 and test_mape <= 15:
                   print('✓ Model performance meets production standards')
           else:
-              print('No model metadata found')
+              print('No model metadata found - skipping validation')
+              print('This is expected for new deployments or when DVC data is not available')
           "

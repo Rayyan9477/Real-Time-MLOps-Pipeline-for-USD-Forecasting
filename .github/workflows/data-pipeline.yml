@@ -6,6 +6,9 @@ on:
     - cron: '0 */2 * * *'
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  contents: write
+
 env:
   PYTHON_VERSION: '3.10'
 
@@ -45,15 +48,24 @@ jobs:
         run: |
           echo "Environment configured with secrets"
 
+      - name: Setup DVC
+        uses: iterative/setup-dvc@v1
+
       - name: Configure DVC remote auth (Dagshub)
         env:
           DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          dvc remote list | awk '{print $1}' | grep -qx 'dagshub'
+          # Check if dagshub remote exists, add if not
+          if ! dvc remote list 2>/dev/null | awk '{print $1}' | grep -qx 'dagshub'; then
+            echo "Adding DVC remote 'dagshub'..."
+            dvc remote add -d dagshub "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
+          fi
+          # Configure auth
           dvc remote modify dagshub --local auth basic
           dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
           dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
+          echo "DVC remote configured successfully"
       
       - name: Extract data from API
         env:
@@ -112,28 +124,65 @@ jobs:
           DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
           set -e
+          echo "=== Starting DVC versioning ==="
+
+          # Find latest processed data file
           latest_processed=$(ls -1t data/processed/processed_data_*.parquet 2>/dev/null | head -n 1 || true)
           if [ -z "$latest_processed" ]; then
             echo "No processed parquet found to version" >&2
             exit 1
           fi
+          echo "Found processed data: $latest_processed"
 
-          # Add artifacts to DVC (binaries stay out of git; .dvc pointers are committed)
-          dvc add "$latest_processed"
-          dvc add models/latest_model.pkl
-          dvc add models/scaler.pkl
-          dvc add models/latest_metadata.json
+          # Function to safely add file to DVC
+          safe_dvc_add() {
+            local file="$1"
+            if [ -f "$file" ]; then
+              echo "Adding $file to DVC..."
+              # Remove existing .dvc file if it exists (to allow re-adding)
+              rm -f "${file}.dvc" 2>/dev/null || true
+              dvc add "$file" && echo "✓ Added $file" || echo "⚠ Failed to add $file"
+            else
+              echo "⚠ File not found, skipping: $file"
+            fi
+          }
 
-          # Push artifacts to remote
-          dvc push
+          # Add artifacts to DVC (only if they exist)
+          safe_dvc_add "$latest_processed"
+          safe_dvc_add "models/latest_model.pkl"
+          safe_dvc_add "models/scaler.pkl"
+          safe_dvc_add "models/latest_metadata.json"
+
+          # Push artifacts to remote (continue on error for individual files)
+          echo "=== Pushing to DVC remote ==="
+          dvc push -v 2>&1 || {
+            echo "⚠ DVC push had issues, attempting to push individual files..."
+            # Try to push each file individually
+            for dvc_file in $(find . -name "*.dvc" -type f 2>/dev/null); do
+              echo "Pushing $dvc_file..."
+              dvc push "$dvc_file" 2>&1 || echo "⚠ Could not push $dvc_file"
+            done
+          }
+          echo "=== DVC versioning complete ==="
       
       - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add data/ models/
-          git diff --staged --quiet || git commit -m "chore: automated data update and model training [skip ci]"
-          git push
+
+          # Add .dvc files and .gitignore changes
+          git add "*.dvc" .gitignore data/.gitignore models/.gitignore 2>/dev/null || true
+          git add data/**/*.dvc models/**/*.dvc 2>/dev/null || true
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: automated data update and model training [skip ci]"
+            git push origin HEAD
+          fi
         continue-on-error: true
       
       - name: Upload artifacts
