@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -30,6 +33,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install black pylint flake8 pytest pytest-cov
         pip install -r requirements.txt
+
+    - name: Ensure required directories exist
+      run: |
+        mkdir -p data/raw data/processed models logs
 
     - name: Run Black (code formatting check)
       run: |
