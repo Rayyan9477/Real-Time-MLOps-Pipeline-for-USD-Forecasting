@@ -1,0 +1,25 @@
+# Netlify configuration for static dashboard hosting
+# Note: For full API functionality, use Vercel, Railway, or Render
+
+[build]
+  command = "echo 'Static dashboard build complete'"
+  publish = "src/ui"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Redirect API requests to the deployed API service
+[[redirects]]
+  from = "/api/*"
+  to = "https://your-api-service.railway.app/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/templates/index.html"
+  status = 200
+
+[dev]
+  command = "python -m http.server 8080 --directory src/ui"
+  port = 8080
