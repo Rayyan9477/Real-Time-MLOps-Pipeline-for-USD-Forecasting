@@ -13,138 +13,149 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Load environment variables
-      run: |
-        echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
-        echo "DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_URI=https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_PASSWORD=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
-        echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> $GITHUB_ENV
-        echo "DAGSHUB_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
-        echo "DAGSHUB_TOKEN=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
+      - name: Load environment variables
+        run: |
+          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
+          echo "DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}" >> $GITHUB_ENV
+          MLFLOW_URI="https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}"
+          MLFLOW_URI="${MLFLOW_URI}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow"
+          echo "MLFLOW_TRACKING_URI=${MLFLOW_URI}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_PASSWORD=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> $GITHUB_ENV
+          echo "DAGSHUB_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
+          echo "DAGSHUB_TOKEN=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Setup DVC
-      uses: iterative/setup-dvc@v1
+      - name: Setup DVC
+        uses: iterative/setup-dvc@v1
 
-    - name: Ensure required directories exist
-      run: |
-        mkdir -p data/raw data/processed models
+      - name: Ensure required directories exist
+        run: |
+          mkdir -p data/raw data/processed models
 
-    - name: Configure DVC for DagsHub
-      env:
-        DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-        DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
-      run: |
-        # Check if dagshub remote exists, add if not
-        if ! dvc remote list 2>/dev/null | awk '{print $1}' | grep -qx 'dagshub'; then
-          echo "Adding DVC remote 'dagshub'..."
-          dvc remote add -d dagshub "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
-        else
-          echo "DVC remote 'dagshub' already exists; updating auth"
-        fi
-        dvc remote modify dagshub --local auth basic
-        dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
-        dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
-        echo "DVC remote configured successfully"
+      - name: Configure DVC for DagsHub
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          # Check if dagshub remote exists, add if not
+          if ! dvc remote list 2>/dev/null | awk '{print $1}' | grep -qx 'dagshub'; then
+            echo "Adding DVC remote 'dagshub'..."
+            dvc remote add -d dagshub \
+              "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
+          else
+            echo "DVC remote 'dagshub' already exists; updating auth"
+          fi
+          dvc remote modify dagshub --local auth basic
+          dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
+          dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
+          echo "DVC remote configured successfully"
 
-    - name: Pull latest data with DVC
-      continue-on-error: true
-      run: |
-        echo "Attempting to pull data from DVC remote..."
-        dvc pull -v 2>&1 || {
-          echo "⚠ DVC pull failed or no data to pull"
-          echo "Creating sample data for CI testing..."
-        }
+      - name: Pull latest data with DVC
+        continue-on-error: true
+        run: |
+          echo "Attempting to pull data from DVC remote..."
+          dvc pull -v 2>&1 || {
+            echo "⚠ DVC pull failed or no data to pull"
+            echo "Creating sample data for CI testing..."
+          }
 
-    - name: Setup CML
-      uses: iterative/setup-cml@v1
+      - name: Setup CML
+        uses: iterative/setup-cml@v1
 
-    - name: Train model
-      continue-on-error: true
-      run: |
-        python src/models/trainer.py --experiment "ci_cd_testing" || echo "Model training failed, continuing"
+      - name: Train model
+        continue-on-error: true
+        run: |
+          python src/models/trainer.py --experiment "ci_cd_testing" || \
+            echo "Model training failed, continuing"
 
-    - name: Generate metrics report
-      run: |
-        python -c "
-        try:
-            import mlflow
-            import os
+      - name: Generate metrics report
+        run: |
+          python -c "
+          try:
+              import mlflow
+              import os
 
-            def format_metric(value, fmt='.6f'):
-                if value is None or value == 'N/A':
-                    return 'N/A'
-                try:
-                    return format(float(value), fmt)
-                except (ValueError, TypeError):
-                    return str(value)
+              def format_metric(value, fmt='.6f'):
+                  if value is None or value == 'N/A':
+                      return 'N/A'
+                  try:
+                      return format(float(value), fmt)
+                  except (ValueError, TypeError):
+                      return str(value)
 
-            mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
-            client = mlflow.tracking.MlflowClient()
+              mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
+              client = mlflow.tracking.MlflowClient()
 
-            # Get latest run from test branch
-            experiment = client.get_experiment_by_name('ci_cd_testing')
-            if experiment:
-                runs = client.search_runs(experiment.experiment_id, order_by=['start_time DESC'], max_results=1)
+              # Get latest run from test branch
+              experiment = client.get_experiment_by_name('ci_cd_testing')
+              if experiment:
+                  runs = client.search_runs(
+                      experiment.experiment_id,
+                      order_by=['start_time DESC'],
+                      max_results=1)
 
-                if runs:
-                    latest_run = runs[0]
-                    metrics = latest_run.data.metrics
+                  if runs:
+                      latest_run = runs[0]
+                      metrics = latest_run.data.metrics
 
-                    # Write metrics to file with safe formatting
-                    with open('metrics.txt', 'w') as f:
-                        f.write('## Model Performance Metrics\n\n')
-                        f.write(f'**RMSE**: {format_metric(metrics.get(\"rmse\"))}\n')
-                        f.write(f'**MAE**: {format_metric(metrics.get(\"mae\"))}\n')
-                        f.write(f'**R²**: {format_metric(metrics.get(\"r2\"), \".4f\")}\n')
-                        f.write(f'**MAPE**: {format_metric(metrics.get(\"mape\"), \".2f\")}%\n\n')
-                        drift = metrics.get('drift_ratio')
-                        f.write(f'**Drift Ratio**: {format_metric(drift, \".2%\") if drift else \"N/A\"}\n')
-                        f.write(f'**Drifted Features**: {int(metrics.get(\"num_drifted_features\", 0))}/{int(metrics.get(\"total_features\", 0))}\n')
-                else:
-                    with open('metrics.txt', 'w') as f:
-                        f.write('## Model Performance Metrics\n\n')
-                        f.write('No runs found in ci_cd_testing experiment\n')
-            else:
-                with open('metrics.txt', 'w') as f:
-                    f.write('## Model Performance Metrics\n\n')
-                    f.write('ci_cd_testing experiment not found\n')
-        except Exception as e:
-            with open('metrics.txt', 'w') as f:
-                f.write('## Model Performance Metrics\n\n')
-                f.write(f'Error generating metrics: {str(e)}\n')
-        "
+                      # Write metrics to file with safe formatting
+                      with open('metrics.txt', 'w') as f:
+                          f.write('## Model Performance Metrics\n\n')
+                          f.write(f'**RMSE**: {format_metric(metrics.get(\"rmse\"))}\n')
+                          f.write(f'**MAE**: {format_metric(metrics.get(\"mae\"))}\n')
+                          f.write(f'**R²**: {format_metric(metrics.get(\"r2\"), \".4f\")}\n')
+                          mape = format_metric(metrics.get(\"mape\"), \".2f\")
+                          f.write(f'**MAPE**: {mape}%\n\n')
+                          drift = metrics.get('drift_ratio')
+                          drift_str = format_metric(drift, \".2%\") if drift else \"N/A\"
+                          f.write(f'**Drift Ratio**: {drift_str}\n')
+                          num_drifted = int(metrics.get(\"num_drifted_features\", 0))
+                          total_feat = int(metrics.get(\"total_features\", 0))
+                          f.write(f'**Drifted Features**: {num_drifted}/{total_feat}\n')
+                  else:
+                      with open('metrics.txt', 'w') as f:
+                          f.write('## Model Performance Metrics\n\n')
+                          f.write('No runs found in ci_cd_testing experiment\n')
+              else:
+                  with open('metrics.txt', 'w') as f:
+                      f.write('## Model Performance Metrics\n\n')
+                      f.write('ci_cd_testing experiment not found\n')
+          except Exception as e:
+              with open('metrics.txt', 'w') as f:
+                  f.write('## Model Performance Metrics\n\n')
+                  f.write(f'Error generating metrics: {str(e)}\n')
+          "
 
-    - name: Create CML report
-      env:
-        REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        # Add metrics to report
-        cat metrics.txt >> report.md
+      - name: Create CML report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Add metrics to report
+          cat metrics.txt >> report.md
 
-        # Add comparison note
-        echo "" >> report.md
-        echo "---" >> report.md
-        echo "### Recommendation" >> report.md
-        echo "✓ Review metrics above before merging to main branch" >> report.md
-        echo "✓ Ensure RMSE has not degraded by more than 10%" >> report.md
-        echo "✓ Check drift ratio is within acceptable limits" >> report.md
+          # Add comparison note
+          echo "" >> report.md
+          echo "---" >> report.md
+          echo "### Recommendation" >> report.md
+          echo "✓ Review metrics above before merging to main branch" >> report.md
+          echo "✓ Ensure RMSE has not degraded by more than 10%" >> report.md
+          echo "✓ Check drift ratio is within acceptable limits" >> report.md
 
-        # Post comment with CML
-        cml comment create report.md
+          # Post comment with CML
+          cml comment create report.md

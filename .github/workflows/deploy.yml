@@ -13,123 +13,129 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Load environment variables
-      run: |
-        echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
-        echo "DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_URI=https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
-        echo "MLFLOW_TRACKING_PASSWORD=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
-        echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> $GITHUB_ENV
+      - name: Load environment variables
+        run: |
+          echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> $GITHUB_ENV
+          echo "DOCKER_PASSWORD=${{ secrets.DOCKER_PASSWORD }}" >> $GITHUB_ENV
+          MLFLOW_URI="https://dagshub.com/${{ secrets.DAGSHUB_USERNAME }}"
+          MLFLOW_URI="${MLFLOW_URI}/Real-Time-MLOps-Pipeline-for-USD-Forecasting.mlflow"
+          echo "MLFLOW_TRACKING_URI=${MLFLOW_URI}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_USERNAME=${{ secrets.DAGSHUB_USERNAME }}" >> $GITHUB_ENV
+          echo "MLFLOW_TRACKING_PASSWORD=${{ secrets.DAGSHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }}" >> $GITHUB_ENV
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install mlflow
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      id: docker_login
-      continue-on-error: true
-      uses: docker/login-action@v3
-      with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+      - name: Login to Docker Hub
+        id: docker_login
+        continue-on-error: true
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
-    - name: Get model version from MLflow
-      id: model_version
-      continue-on-error: true
-      run: |
-        VERSION=$(python -c "
-        try:
-            import mlflow
-            import os
-            import sys
-            mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
-            client = mlflow.tracking.MlflowClient()
-            model_name = 'usd_volatility_predictor'
-            versions = client.search_model_versions(f\"name='{model_name}'\", order_by=['version_number DESC'], max_results=1)
-            if not versions:
-                print('No model versions found, using timestamp', file=sys.stderr)
-                print('20241202_150800')
-                sys.exit(0)
-            version = versions[0].version
-            print(version)
-        except Exception as e:
-            print('Error connecting to MLflow, using timestamp', file=sys.stderr)
-            print('20241202_150800')
-        ")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Model version: $VERSION"
+      - name: Get model version from MLflow
+        id: model_version
+        continue-on-error: true
+        run: |
+          VERSION=$(python -c "
+          try:
+              import mlflow
+              import os
+              import sys
+              mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
+              client = mlflow.tracking.MlflowClient()
+              model_name = 'usd_volatility_predictor'
+              query = f\"name='{model_name}'\"
+              versions = client.search_model_versions(
+                  query, order_by=['version_number DESC'], max_results=1)
+              if not versions:
+                  print('No model versions found, using timestamp', file=sys.stderr)
+                  print('20241202_150800')
+                  sys.exit(0)
+              version = versions[0].version
+              print(version)
+          except Exception as e:
+              print('Error connecting to MLflow, using timestamp', file=sys.stderr)
+              print('20241202_150800')
+          ")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Model version: $VERSION"
 
-    - name: Build and push Docker image
-      id: docker_build
-      if: steps.docker_login.outcome == 'success'
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        tags: |
-          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
-          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
-        cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache
-        cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache,mode=max
+      - name: Build and push Docker image
+        id: docker_build
+        if: steps.docker_login.outcome == 'success'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+            ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+          cache-from: |
+            type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache
+          cache-to: |
+            type=registry,ref=${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:buildcache,mode=max
 
-    - name: Verify deployment
-      if: steps.docker_build.outcome == 'success'
-      run: |
-        echo "Testing Docker image..."
-        docker run -d --name test-container \
-          -p 8000:8000 \
-          -e MLFLOW_TRACKING_URI="${{ env.MLFLOW_TRACKING_URI }}" \
-          -e MLFLOW_TRACKING_USERNAME="${{ env.MLFLOW_TRACKING_USERNAME }}" \
-          -e MLFLOW_TRACKING_PASSWORD="${{ env.MLFLOW_TRACKING_PASSWORD }}" \
-          ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+      - name: Verify deployment
+        if: steps.docker_build.outcome == 'success'
+        run: |
+          echo "Testing Docker image..."
+          docker run -d --name test-container \
+            -p 8000:8000 \
+            -e MLFLOW_TRACKING_URI="${{ env.MLFLOW_TRACKING_URI }}" \
+            -e MLFLOW_TRACKING_USERNAME="${{ env.MLFLOW_TRACKING_USERNAME }}" \
+            -e MLFLOW_TRACKING_PASSWORD="${{ env.MLFLOW_TRACKING_PASSWORD }}" \
+            ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
 
-        # Wait for container to start
-        sleep 15
+          # Wait for container to start
+          sleep 15
 
-        # Health check
-        if curl -f http://localhost:8000/health; then
-          echo "✓ Deployment verification successful"
-        else
-          echo "✗ Health check failed"
-          docker logs test-container
-          exit 1
-        fi
+          # Health check
+          if curl -f http://localhost:8000/health; then
+            echo "✓ Deployment verification successful"
+          else
+            echo "✗ Health check failed"
+            docker logs test-container
+            exit 1
+          fi
 
-        # Cleanup
-        docker stop test-container
-        docker rm test-container
+          # Cleanup
+          docker stop test-container
+          docker rm test-container
 
-    - name: Create release
-      if: steps.docker_build.outcome == 'success'
-      uses: softprops/action-gh-release@v2
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: v${{ steps.model_version.outputs.version }}
-        name: Release v${{ steps.model_version.outputs.version }}
-        body: |
-          ## USD Volatility Predictor - Production Release
+      - name: Create release
+        if: steps.docker_build.outcome == 'success'
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v${{ steps.model_version.outputs.version }}
+          name: Release v${{ steps.model_version.outputs.version }}
+          body: |
+            ## USD Volatility Predictor - Production Release
 
-          **Model Version**: ${{ steps.model_version.outputs.version }}
-          **Docker Image**: ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
+            **Model Version**: ${{ steps.model_version.outputs.version }}
+            **Docker Image**: See deployment instructions below
 
-          ### Deployment
-          ```bash
-          docker pull ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
-          docker run -p 8000:8000 ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:v${{ steps.model_version.outputs.version }}
-          ```
-        draft: false
-        prerelease: false
-      continue-on-error: true
+            ### Deployment
+            ```bash
+            docker pull ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+            docker run -p 8000:8000 ${{ env.DOCKER_USERNAME }}/usd-volatility-predictor:latest
+            ```
+          draft: false
+          prerelease: false
+        continue-on-error: true

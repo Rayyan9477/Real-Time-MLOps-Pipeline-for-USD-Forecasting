@@ -15,19 +15,19 @@ env:
 jobs:
   fetch-and-train:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -36,7 +36,7 @@ jobs:
       - name: Ensure required directories exist
         run: |
           mkdir -p data/raw data/processed models
-      
+
       - name: Configure environment variables
         env:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
@@ -59,14 +59,15 @@ jobs:
           # Check if dagshub remote exists, add if not
           if ! dvc remote list 2>/dev/null | awk '{print $1}' | grep -qx 'dagshub'; then
             echo "Adding DVC remote 'dagshub'..."
-            dvc remote add -d dagshub "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
+            dvc remote add -d dagshub \
+              "https://dagshub.com/$DAGSHUB_USERNAME/Real-Time-MLOps-Pipeline-for-USD-Forecasting.dvc"
           fi
           # Configure auth
           dvc remote modify dagshub --local auth basic
           dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
           dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
           echo "DVC remote configured successfully"
-      
+
       - name: Extract data from API
         env:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
@@ -75,10 +76,10 @@ jobs:
           from src.data.data_extraction import TwelveDataClient
           from src.utils.logger import get_logger
           from datetime import datetime
-          
+
           logger = get_logger('data_extraction_job')
           logger.info('Starting data extraction...')
-          
+
           client = TwelveDataClient()
           df = client.fetch_to_dataframe()
 
@@ -88,20 +89,20 @@ jobs:
           logger.info(f'Data extracted and saved to {filepath}')
           print(f'✓ Extracted {len(df)} records')
           "
-      
+
       - name: Transform data
         run: |
           python -c "
           from src.data.data_transformation import DataTransformer
           from src.utils.logger import get_logger
           from pathlib import Path
-          
+
           logger = get_logger('data_transformation_job')
           logger.info('Starting data transformation...')
-          
+
           transformer = DataTransformer()
           processed_files = sorted(Path('data/raw').glob('raw_data_*.csv'))
-          
+
           if processed_files:
               df_processed = transformer.transform(str(processed_files[-1]))
               logger.info('Data transformation completed')
@@ -109,7 +110,7 @@ jobs:
           else:
               raise FileNotFoundError('No raw data files found')
           "
-      
+
       - name: Train model
         env:
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -164,7 +165,7 @@ jobs:
             done
           }
           echo "=== DVC versioning complete ==="
-      
+
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +185,7 @@ jobs:
             git push origin HEAD
           fi
         continue-on-error: true
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -194,7 +195,7 @@ jobs:
             models/latest_metadata.json
             models/scaler.pkl
           retention-days: 30
-      
+
       - name: Send notification on failure
         if: failure()
         run: |

@@ -19,12 +19,12 @@ RESET = '\033[0m'
 
 class HealthChecker:
     """System health checker."""
-    
+
     def __init__(self):
         self.passed = 0
         self.failed = 0
         self.warnings = 0
-        self.root = Path('/workspaces/Real-Time-MLOps-Pipeline-for-USD-Forecasting')
+        self.root = Path(__file__).parent.parent
     
     def check(self, condition, message, level='error'):
         """Check a condition and print result."""

@@ -694,7 +694,7 @@ if __name__ == "__main__":
     from config import API_CONFIG
 
     uvicorn.run(
-        "src.api.app:app",
+        "src.api.main:app",
         host=API_CONFIG["host"],
         port=API_CONFIG["port"],
         workers=1,

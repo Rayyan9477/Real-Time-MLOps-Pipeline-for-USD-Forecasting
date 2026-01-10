@@ -72,6 +72,10 @@ data/processed/*
 *.json
 !*.dvc
 !.gitkeep
+!vercel.json
+!railway.json
+!package.json
+!tsconfig.json
 
 # Docker
 docker-compose.override.yml

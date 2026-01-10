@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "usd-volatility-api",
+  "builds": [
+    {
+      "src": "src/api/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/static/(.*)",
+      "dest": "src/ui/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/api/main.py"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "."
+  },
+  "regions": ["iad1"],
+  "functions": {
+    "src/api/main.py": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}
